@@ -1,6 +1,9 @@
 import numpy as np
 import cv2
 import os
+import torch
+from skimage.segmentation import find_boundaries
+from tqdm import tqdm
 
 def read_single(data): # read random image and single mask from  the dataset
         ent  = data[np.random.randint(len(data))] # choose random entry
@@ -51,3 +54,24 @@ def prepare_data_train(images_path, annotations_path):
                 print(f"Warning: Missing mask for image '{name}' or invalid paths.")
     return data
 
+def prepare_model( model_cfg, model_checkpoint, device="cuda"):
+    model = build_sam2(model_cfg, model_checkpoint, device=device)
+    predictor = SAM2ImagePredictor(model)
+    return predictor
+
+def create_optimizer_and_scaler(model, lr=1e-5, weight_decay=4e-5):
+    """
+    Membuat optimizer dan scaler untuk training dengan mixed precision.
+
+    Args:
+        model (torch.nn.Module): Model yang akan dioptimasi.
+        lr (float): Learning rate.
+        weight_decay (float): Weight decay untuk regularisasi.
+
+    Returns:
+        optimizer: Optimizer AdamW.
+        scaler: GradScaler untuk mixed precision training.
+    """
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=lr, weight_decay=weight_decay)
+    scaler = torch.cuda.amp.GradScaler()  # Mixed precision scaler
+    return optimizer, scaler
