@@ -105,3 +105,48 @@ def all_json_to_image(json_dir, output_dir):
 
     print("Proses konversi selesai untuk semua file JSON.")
 
+
+def read_single(data):
+    ent  = data[np.random.randint(len(data))]
+    Img = cv2.imread(ent["image"])[...,::-1]
+    ann_map = cv2.imread(ent["annotation"])
+
+    mat_map = ann_map[:,:,0]
+    ves_map = ann_map[:,:,2]
+    mat_map[mat_map==0] = ves_map[mat_map==0]*(mat_map.max()+1)
+
+    inds = np.unique(mat_map)[1:]
+    if inds.__len__()>0:
+            ind = inds[np.random.randint(inds.__len__())]
+    else:
+            return read_single(data)
+
+    mask=(mat_map == ind).astype(np.uint8)
+    coords = np.argwhere(mask > 0)
+    yx = np.array(coords[np.random.randint(len(coords))])
+    return Img,mask,[[yx[1], yx[0]]]
+
+def read_batch(data,batch_size=4):
+    limage = []
+    lmask = []
+    linput_point = []
+    for i in range(batch_size):
+            image,mask,input_point = read_single(data)
+            limage.append(image)
+            lmask.append(mask)
+            linput_point.append(input_point)
+
+    return limage, np.array(lmask), np.array(linput_point),  np.ones([batch_size,1])
+
+
+def append_data(data_dir, data_dir_mask):
+    for name in os.listdir(data_dir):  # Iterate over all files in data_dir
+        if name.endswith(".png"):  # Process only files with .png extension
+            image_path = os.path.join(data_dir, name)  # Full path to image
+            annotation_path = os.path.join(data_dir_mask, name)  # Full path to mask
+            
+            # Check if both image and mask exist
+            if os.path.exists(image_path) and os.path.exists(annotation_path):
+                data.append({"image": image_path, "annotation": annotation_path})
+            else:
+                print(f"Warning: Missing mask for image '{name}' or invalid paths.")
