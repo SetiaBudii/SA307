@@ -2,8 +2,10 @@ import numpy as np
 import cv2
 import os
 import torch
-from skimage.segmentation import find_boundaries
 from tqdm import tqdm
+from sam2.build_sam import build_sam2
+from sam2.sam2_image_predictor import SAM2ImagePredictor
+
 
 def read_single(data): # read random image and single mask from  the dataset
         ent  = data[np.random.randint(len(data))] # choose random entry
@@ -54,24 +56,63 @@ def prepare_data_train(images_path, annotations_path):
                 print(f"Warning: Missing mask for image '{name}' or invalid paths.")
     return data
 
-def prepare_model( model_cfg, model_checkpoint, device="cuda"):
-    model = build_sam2(model_cfg, model_checkpoint, device=device)
-    predictor = SAM2ImagePredictor(model)
-    return predictor
-
-def create_optimizer_and_scaler(model, lr=1e-5, weight_decay=4e-5):
+def prepare_model_predictor( model_cfg, model_checkpoint, device="cuda"):
     """
-    Membuat optimizer dan scaler untuk training dengan mixed precision.
+    Setup model dan predictor SAM 2
 
     Args:
-        model (torch.nn.Module): Model yang akan dioptimasi.
+        model_cfg : path ke config model SAM (example:"configs/sam2/sam2_hiera_l.yaml")
+        model_checkpoint : path ke checkpoint atau model .pt/pth dari SAM (example:"kaggle/working/SA307sam2_hiera_large.pt")
+        device : device yang digunakan (default: "cuda")
+    Returns:
+        model : Model SAM yang telah dibangun.
+        predictor : Instance dari SAM2ImagePredictor.
+    """
+    
+    model = build_sam2(model_cfg, model_checkpoint, device=device)
+    predictor = SAM2ImagePredictor(model)
+    return model,predictor
+
+def set_optimizer_and_scaler(predictor, lr=1e-5, weight_decay=4e-5):
+    """
+    Setup optimizer dan scaler untuk fine-tuning model.
+
+    Args:
+        predictor (torch.nn.Module): Model predictor SAM yang akan difine-tune.
         lr (float): Learning rate.
         weight_decay (float): Weight decay untuk regularisasi.
 
     Returns:
         optimizer: Optimizer AdamW.
-        scaler: GradScaler untuk mixed precision training.
+        scaler: GradScaler untuk mixed precision fine-tuning.
     """
-    optimizer = torch.optim.AdamW(params=model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(params=predictor.model.parameters(), lr=lr, weight_decay=weight_decay)
     scaler = torch.cuda.amp.GradScaler()  # Mixed precision scaler
     return optimizer, scaler
+
+def set_trainable_layers(imageEncoder, promptEncoder, maskDecoder, predictor):
+    """
+    Mengatur trainable layers untuk image encoder, prompt encoder, dan mask decoder.
+    
+    Args:
+        imageEncoder (bool): Menentukan apakah image encoder dalam mode trainable.
+        promptEncoder (bool): Menentukan apakah prompt encoder dalam mode trainable.
+        maskDecoder (bool): Menentukan apakah mask decoder dalam mode trainable.
+        predictor: Instance dari SAM2ImagePredictor yang memiliki model.
+    """
+    components = {
+        "Image Encoder": (predictor.model.image_encoder, imageEncoder),
+        "Prompt Encoder": (predictor.model.sam_prompt_encoder, promptEncoder),
+        "Mask Decoder": (predictor.model.sam_mask_decoder, maskDecoder),
+    }
+
+    # Atur mode trainable dan cetak informasi jika layer trainable
+    for name, (component, is_trainable) in components.items():
+        component.train(is_trainable)
+        if is_trainable:
+            print(f"\n{name}:")
+            print(component)
+
+    print("\nModel telah diatur ke mode pelatihan.")
+
+     
