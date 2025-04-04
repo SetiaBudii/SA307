@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python train_pointsam.py --cfg configs.config_loveda --prompt point --num_points 1 --out_dir /kaggle/working/work_dir/hrsid/pointsam/ --load_type soft
