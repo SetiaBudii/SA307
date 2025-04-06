@@ -1,0 +1,28 @@
+name: Notify Discord on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  discord_notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Get latest commit message
+        id: get_commit
+        run: |
+          echo "MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+
+      - name: Send message to Discord
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{
+                     "username": "GitHub CI",
+                     "avatar_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                     "content": "🚀 Push ke `main` oleh **${{ github.actor }}**\n📝 Commit: `${{ env.MESSAGE }}`\n🔗 [Lihat repo](https://github.com/${{ github.repository }})"
+                   }' \
+               ${{ secrets.DISCORD_WEBHOOK }}
