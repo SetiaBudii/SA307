@@ -22,3 +22,6 @@ testing:
   test_dir: "/path/to/test"
   test_dir_mask: "/path/to/test/mask"
   test_dir_output: "/path/to/output"
+
+datasets:
+  annotatation_coco: "/path/to/annotations"
