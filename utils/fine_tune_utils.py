@@ -30,6 +30,41 @@ def read_single(data): # read random image and single mask from  the dataset
         yx = np.array(coords[np.random.randint(len(coords))]) # choose random point/coordinate
         return Img,mask,[[yx[1], yx[0]]]
 
+
+def read_data(data):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+    input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    if np.any(mask == 1):
+        indices = np.argwhere(mask==True)
+        random_point = indices[np.random.choice(list(range(len(indices))))]
+        random_point = [random_point[1], random_point[0]]
+
+        first_point = random_point
+        input_points.append(first_point)
+    
+        # SAMAug
+        for i in range(2):
+            # Random Sampling
+            indices = np.argwhere(mask==True)
+            random_point = indices[np.random.choice(list(range(len(indices))))]
+            random_point = [random_point[1], random_point[0]]
+
+            input_points.append(random_point)
+
+    
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
 def read_batch(data,batch_size=4):
       limage = []
       lmask = []
