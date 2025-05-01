@@ -108,28 +108,9 @@ for epoch in range(EPOCHS):
                 best_miou = mean_iou
 
     # Last iteration of one epoch
-    torch.save({
-        "epoch": epoch,
-        "iteration": len(train_data),
-        "model_state": predictor.model.state_dict(),
-        "optimizer_state": optimizer.state_dict(),
-        "scaler_state": scaler.state_dict(),
-        "mean_iou": mean_iou,
-        "loss": loss.item()
-    }, f"tuned_{epoch+1}_{len(train_data)}.pth")
+    save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
     
     print(f"Epoch: {epoch+1}, Iteration: {len(train_data)}, mIoU: {mean_iou}")
-    # save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
 
 # Last epoch
-torch.save({
-    "epoch": epoch,
-    "iteration": len(train_data),
-    "model_state": predictor.model.state_dict(),
-    "optimizer_state": optimizer.state_dict(),
-    "scaler_state": scaler.state_dict(),
-    "mean_iou": mean_iou,
-    "loss": loss.item()
-}, f"tuned_{epoch+1}_{len(train_data)}.pth")
-
-# save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
+save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
