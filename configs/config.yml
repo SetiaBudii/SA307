@@ -16,6 +16,8 @@ model:
 fine_tune_path:
   train_dir: "/path/to/train"
   train_dir_mask: "/path/to/train/mask"
+  val_dir: "path"
+  val_dir_mask: "path"
   ckpt_dir: "/path/to/checkpoint"
 
 testing:

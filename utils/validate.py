@@ -3,40 +3,22 @@ import torch
 import cv2
 import os
 import sys
+sys.path.insert(0, '..')
+
 from tqdm import tqdm
 from datetime import datetime
 from torch.onnx.symbolic_opset11 import hstack
 from utils.fine_tune_utils import *
 from utils.config import load_config
 from utils.data_loader import load_dataset
-from utils.validate import validate_model
 
-sys.path.insert(0, '..')
 
-config = load_config()
-sam2_model , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
-optimizer, scaler = set_optimizer_and_scaler(predictor)
-set_trainable_layers(False,True,True,predictor)
+@torch.no_grad()
+def validate_model(predictor, val_path, epoch=1):
+    mean_iou = 0
+    loss_list = []
 
-#load dataset
-train_dir = config["fine_tune_path"]["train_dir"]
-train_mask_dir = config["fine_tune_path"]["train_dir_mask"]
-train_data = load_dataset(train_dir, train_mask_dir)
-
-#load dataset validation
-val_dir = config["fine_tune_path"]["val_dir"]
-val_mask_dir = config["fine_tune_path"]["val_dir_mask"]
-val_data = load_dataset(val_dir, val_mask_dir)
-
-resume = False
-
-EPOCHS = config["fine_tune_params"]["epochs"]
-best_iou = 0
-best_miou = 0
-mean_iou = 0
-
-for epoch in range(EPOCHS):
-    pbar = tqdm(train_data, desc=f"Fine-tuning Epoch {epoch+1}")
+    pbar = tqdm(val_path, desc=f"validate in {epoch+1}")
     
     for i, data in enumerate(pbar):
         with torch.amp.autocast('cuda'):
@@ -91,35 +73,12 @@ for epoch in range(EPOCHS):
             iou = inter / (union + 1e-7)
             score_loss = torch.abs(prd_scores[:, 0] - iou).mean()
             loss = seg_loss + score_loss * 0.05
-
+            loss_list.append(loss.item())
             mean_iou = mean_iou * 0.99 + 0.01 * np.mean(iou.cpu().detach().numpy())
-
-            predictor.model.zero_grad()
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-           
+            avg_loss = torch.tensor(loss_list).mean().item()
             pbar.set_postfix({
-                "Loss": loss.item(),
+                "Loss": avg_loss,
                 "mIoU": mean_iou,
-                "IoU": iou.mean().item()
             })
 
-            if iou.mean().item() > best_iou:
-                best_iou = iou.mean().item()
-                best_point = input_points
-                image_name = data["image"]
-
-            if mean_iou > best_miou:
-                best_miou = mean_iou
-
-    # Last iteration of one epoch
-    save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
-    if((epoch+1) > 0):
-        validate_model(predictor, val_data, epoch)
-        predictor.model.train()
-    
-    print(f"Epoch: {epoch+1}, Iteration: {len(train_data)}, mIoU: {mean_iou}")
-
-# Last epoch
-save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss)
+    print(f"Epoch: {epoch+1}, mIoU: {mean_iou}, Loss: {avg_loss}")
