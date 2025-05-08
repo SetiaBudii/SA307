@@ -14,6 +14,9 @@ from samaug.randomsampling import get_random_point
 def main(args):
     config = load_config()
     _ , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
+    checkpoint = torch.load(args.checkpoint_path)
+    model_state_dict = checkpoint['model_state']
+    predictor.model.load_state_dict(model_state_dict, strict=False)
     test_data = load_dataset(config["testing"]["test_dir"], config["testing"]["test_dir_mask"])
 
     ious = []
@@ -74,6 +77,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Testing script for SAM2 model")
     parser.add_argument("--positive_point", type=int, required=True, help="jumlah penambahan titik positif")
     parser.add_argument("--negative_point", type=int, required=True, help="jumlah penambahan titik negatif")
+    parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to the checkpoint file")
     args = parser.parse_args()
 
     main(args)
