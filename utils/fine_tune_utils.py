@@ -151,7 +151,7 @@ def set_trainable_layers(imageEncoder, promptEncoder, maskDecoder, predictor):
     print("\nModel telah diatur ke mode pelatihan.")
 
      
-def save_ckpts(epoch, itr, predictor, optimizer, scaler, mean_iou, loss):
+def save_ckpts(epoch, itr, predictor, optimizer, scaler, mean_iou, loss, cpkt_path):
     torch.save({
         "epoch": epoch,
         "iteration": itr,
@@ -160,4 +160,4 @@ def save_ckpts(epoch, itr, predictor, optimizer, scaler, mean_iou, loss):
         "scaler_state": scaler.state_dict(),
         "mean_iou": mean_iou,
         "loss": loss.item()
-    }, f"tuned_{epoch+1}_{itr}.pth")
+    }, cpkt_path)

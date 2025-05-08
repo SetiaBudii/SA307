@@ -22,7 +22,7 @@ def validate_model(predictor, val_path, epoch=1):
     
     for i, data in enumerate(pbar):
         with torch.amp.autocast('cuda'):
-            img, gt_img, input_points, input_labels = read_single(data, visualize_data=False)
+            img, gt_img, input_points, input_labels = read_data(data)
             if gt_img.shape[0] == 0 or len(input_points) == 0: 
                 continue
 
@@ -82,3 +82,4 @@ def validate_model(predictor, val_path, epoch=1):
             })
 
     print(f"Epoch: {epoch+1}, mIoU: {mean_iou}, Loss: {avg_loss}")
+    print("/n=======================================================================")
