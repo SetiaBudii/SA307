@@ -1,8 +1,12 @@
 import random
+import os
+import sys
+sys.path.insert(0, '..')
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import label
+from npc.newnpc import waterbodies_extraction
 
 
 def calculate_iou(mask1, mask2):
@@ -52,6 +56,7 @@ def cal_mask_ious(
 
 def neg_prompt_calibration(
     masks,
+    image_path,
 ):
     water_bodies = waterbodies_extraction(image_path)
 
