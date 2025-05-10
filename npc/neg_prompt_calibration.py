@@ -6,8 +6,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import label
-from npc.newnpc import waterbodies_extraction
-
+# from npc.newnpc import waterbodies_extraction
+from npc.waterbodyextraction import waterbodies_extraction
 
 def calculate_iou(mask1, mask2):
     intersection = torch.logical_and(mask1, mask2)

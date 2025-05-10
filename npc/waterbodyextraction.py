@@ -8,7 +8,7 @@ from scipy.ndimage import binary_fill_holes
 from skimage.morphology import remove_small_objects, disk
 
 
-def waterbodies_extraction(image_path):
+def waterbodies_extraction(image):
     """
     Fungsi untuk mengekstrak objek air dari citra menggunakan metode entropi dan thresholding Otsu.
     Proses : 1. Hitung entropi citra 
@@ -28,7 +28,8 @@ def waterbodies_extraction(image_path):
     """
 
 
-    img = io.imread(image_path)
+    # img = io.imread(image_path)
+    img = image
     entropy_img = entropy(img[:, :, 0], footprint=disk(3))
     thresh = threshold_otsu(entropy_img)
     binary_img = entropy_img <= thresh
