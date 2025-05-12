@@ -58,6 +58,8 @@ def neg_prompt_calibration(
     masks,
     image_path,
 ):
+    neg_points = np.array([])  # atau bentuk array kosong sesuai format yang diharapkan
+    neg_labels = np.array([])
     water_bodies = waterbodies_extraction(image_path)
 
     labeled_array, num_features = label(water_bodies)
