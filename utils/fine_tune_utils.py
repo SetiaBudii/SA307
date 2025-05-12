@@ -1,10 +1,14 @@
 import numpy as np
 import cv2
 import os
+import sys
+sys.path.insert(0, '..')
 import torch
+import kagglehub
 from tqdm import tqdm
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+from samaug.randomsampling import get_random_point
 
 
 def read_single(data): # read random image and single mask from  the dataset
@@ -142,11 +146,11 @@ def set_trainable_layers(imageEncoder, promptEncoder, maskDecoder, predictor):
     }
 
     # Atur mode trainable dan cetak informasi jika layer trainable
-    for name, (component, is_trainable) in components.items():
-        component.train(is_trainable)
-        if is_trainable:
-            print(f"\n{name}:")
-            print(component)
+    # for name, (component, is_trainable) in components.items():
+    #     component.train(is_trainable)
+    #     if is_trainable:
+    #         print(f"\n{name}:")
+    #         print(component)
 
     print("\nModel telah diatur ke mode pelatihan.")
 
@@ -161,3 +165,94 @@ def save_ckpts(epoch, itr, predictor, optimizer, scaler, mean_iou, loss, cpkt_pa
         "mean_iou": mean_iou,
         "loss": loss.item()
     }, cpkt_path)
+
+
+def read_data_test(data):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+    input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    if np.any(mask == 1):
+        indices = np.argwhere(mask==True)
+        random_point = indices[np.random.choice(list(range(len(indices))))]
+        random_point = [random_point[1], random_point[0]]
+
+        first_point = random_point
+        input_points.append(first_point)
+    
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
+def prep_point_image_test(data):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+    input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    if np.any(mask == 1):
+        indices = np.argwhere(mask==True)
+        random_point = indices[np.random.choice(list(range(len(indices))))]
+        random_point = [random_point[1], random_point[0]]
+
+        first_point = random_point
+        input_points.append(first_point)
+    
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
+def prep_point_image(data, number_positive_points=1, number_negative_points=0):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+    input_points = []
+    neg_input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    background = (gt_img == 0).astype(np.float32)
+    if np.any(mask == 1):
+        first_point = get_random_point(mask)
+        input_points.append(first_point)
+
+        if np.any(background == 1) and number_negative_points > 0:
+            neg_first_point = get_random_point(background)
+            neg_input_points.append(neg_first_point)
+            if number_negative_points > 1:
+                for i in range(number_negative_points - 1):
+                    neg_input_points.append(get_random_point(background))
+
+        if number_positive_points > 1:    
+            for i in range(number_positive_points - 1):
+                input_points.append(get_random_point(mask))
+    
+    input_points = np.array(input_points + neg_input_points)
+    input_label_positive = np.ones(len(input_points), dtype=int)
+    input_label_negative = np.zeros(len(neg_input_points), dtype=int)
+    input_labels = np.concatenate([input_label_positive, input_label_negative], axis=0)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
+def upload_model(target_path, handle):
+    kagglehub.model_upload(
+        handle=handle,
+        local_model_dir=target_path,
+        version_notes='Fine-tuned by SA307',
+    )
