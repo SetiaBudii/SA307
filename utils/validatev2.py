@@ -6,17 +6,12 @@ import sys
 sys.path.insert(0, '..')
 
 from tqdm import tqdm
-from datetime import datetime
 from torch.onnx.symbolic_opset11 import hstack
 from utils.fine_tune_utils import *
 from utils.visualize_plotting import *
-from utils.config import load_config
 
-def validate_model(predictor, val_path, epoch=1, number_positive_points=0, number_negative_points=0):
-    config = load_config()
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_file_val_path = os.path.join(config["fine_tune_path"]["logs"], f"validate_log_{timestamp}_{number_positive_points}_{number_negative_points}.txt")
-    metric_dir = os.path.join(config["fine_tune_path"]["metric"])
+def validate_model(predictor, val_path, epoch=1, number_positive_points=0, number_negative_points=0, log_file_path=None):
+    log_file_val_path = log_file_path
     mean_iou = 0
     loss_list = []
     predictor.model.eval()
@@ -87,8 +82,4 @@ def validate_model(predictor, val_path, epoch=1, number_positive_points=0, numbe
     with open(log_file_val_path, "a") as log:
         log.write(f"Epoch {epoch+1}, mIoU: {mean_iou:.4f}, Loss: {avg_loss:.4f}\n")
     
-    epochs_val, miou_val, loss_val = read_log_file(log_file_val_path)
-    plot_miou(epochs_val, miou_val, save_path=os.path.join(metric_dir, f"miou_per_epoch_val_{number_positive_points}_{number_negative_points}.png"))
-    plot_loss(epochs_val, loss_val, save_path=os.path.join(metric_dir, f"loss_per_epoch_val_{number_positive_points}_{number_negative_points}.png"))
-
     print(f"Validate --> Epoch: {epoch+1}, mIoU: {mean_iou}, Loss: {avg_loss}")
