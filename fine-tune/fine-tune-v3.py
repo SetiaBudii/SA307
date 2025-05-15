@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import cv2
 import argparse
 import os
 import sys
@@ -38,7 +37,8 @@ def main(args):
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = os.path.join(current_dir, "logs")
-    log_file_path = os.path.join(log_dir, f"training_log_{timestamp}.txt")
+    log_file_path = os.path.join(log_dir, f"training_log_{timestamp}{args.positive_point}_{args.negative_point}.txt")
+    log_file_val_path = os.path.join(log_dir, f"val_log_{timestamp}{args.positive_point}_{args.negative_point}.txt")
     metric_dir = os.path.join(current_dir, "metric")
 
     EPOCHS = config["fine_tune_params"]["epochs"]
@@ -130,7 +130,7 @@ def main(args):
             log.write(f"Epoch {epoch+1}, mIoU: {mean_iou:.4f}, Loss: {avg_loss:.4f}\n")
             
         print(f"Train --> Epoch: {epoch+1}, Loss: {avg_loss}, mIoU: {mean_iou}")
-        validate_model(predictor, val_data, epoch, args.positive_point, args.negative_point)
+        validate_model(predictor, val_data, epoch, args.positive_point, args.negative_point, log_file_val_path)
         predictor.model.train()
         
     # Last epoch
@@ -138,6 +138,10 @@ def main(args):
     save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
 
     #Save visualization
+    epochs_val, miou_val, loss_val = read_log_file(log_file_val_path)
+    plot_miou(epochs_val, miou_val, save_path=os.path.join(metric_dir, f"miou_per_epoch_val_{args.positive_point}_{args.negative_point}.png"))
+    plot_loss(epochs_val, loss_val, save_path=os.path.join(metric_dir, f"loss_per_epoch_val_{args.positive_point}_{args.negative_point}.png"))
+
     epochs_train, miou_train, loss_train = read_log_file(log_file_path)
     plot_miou(epochs_train, miou_train, save_path=os.path.join(metric_dir, f"miou_per_epoch_train_{args.positive_point}_{args.negative_point}.png"))
     plot_loss(epochs_train, loss_train, save_path=os.path.join(metric_dir, f"loss_per_epoch_train_{args.positive_point}_{args.negative_point}.png"))
