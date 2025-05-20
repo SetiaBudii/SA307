@@ -4,6 +4,9 @@ import json
 from pycocotools import mask as mask_util
 import os
 from tqdm import tqdm
+import cv2
+import os
+import torch
 
 def ground_truth_to_json(image_path, image_id, file_name):
     img = Image.open(image_path).convert("L")
@@ -150,3 +153,47 @@ def append_data(data_dir, data_dir_mask):
                 data.append({"image": image_path, "annotation": annotation_path})
             else:
                 print(f"Warning: Missing mask for image '{name}' or invalid paths.")
+
+
+def read_single_center(data):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+
+    input_points = []
+    input_labels = []
+
+    agriculture = (gt_img == 7).astype(np.int8)
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(agriculture, connectivity=8)
+
+    if num_labels > 1:
+        largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+        largest_component = (labels == largest_label).astype(np.uint8)
+
+        kernel = np.ones((7, 7), np.uint8)
+        eroded = cv2.erode(largest_component, kernel, iterations=5)
+
+        if np.count_nonzero(eroded) == 0:
+            eroded = largest_component
+
+        ys, xs = np.where(eroded)
+
+        M = cv2.moments(largest_component)
+        cx_float = M["m10"] / M["m00"]
+        cy_float = M["m01"] / M["m00"]
+
+        distances = (xs - cx_float)**2 + (ys - cy_float)**2
+        idx = np.argmin(distances)
+
+        cx, cy = xs[idx], ys[idx]
+        first_point = (int(cx), int(cy))
+        input_points.append(first_point)
+
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img)
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels

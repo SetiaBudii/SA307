@@ -8,6 +8,9 @@ from skimage.morphology import disk
 from skimage.filters import threshold_otsu
 from scipy.ndimage import convolve
 from skimage.morphology import closing, remove_small_objects, disk
+import torch
+import cv2
+from scipy.ndimage import center_of_mass, label
 
 def waterbodies_extraction(image_path):
     img = io.imread(image_path)
@@ -38,4 +41,52 @@ def refine_mask(binary_img, iterations=1, min_neighbors=6):
     return result
 
 
+def calc_iou(prd, gt):
+    if isinstance(gt, torch.Tensor):
+        gt = gt.squeeze(0).cpu().numpy()
 
+    assert prd.shape == gt.shape
+    prd = prd.reshape(prd.size).copy()
+    gt = gt.reshape(gt.size)
+
+    area_intersection = np.logical_and(prd, gt).sum()
+    area_union = np.logical_or(prd, gt).sum()
+
+    iou = area_intersection / (area_union + 1e-10)
+    return iou
+
+
+def npc(image_path, init_mask, class_value):
+    gt_img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    if class_value == 8:
+        class_masks = (8 * np.isin(gt_img, [1, 4, 5, 6])).astype(np.uint8)
+    else:
+        class_masks = gt_img * (gt_img == class_value)
+
+    labeled_array, num_instances = label(class_masks)
+    instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
+
+    neg_points = []
+    neg_labels = []
+    for i in range(1, num_instances + 1):
+        iou = calc_iou(init_mask, instances[i-1])
+        neg_coords = np.argwhere(instances[i-1] > 0)
+
+        gt = init_mask
+        pred = instances[i-1]
+
+        gt_bool = gt.astype(bool)
+        pred_bool = pred.astype(bool)
+
+        if iou > 0.005:
+            intersection_mask = gt_bool & pred_bool
+            neg_coords = np.argwhere(intersection_mask)
+
+            if len(neg_coords) > 0:
+                neg_random_point = neg_coords[np.random.randint(len(neg_coords))]
+                neg_points.append([neg_random_point[1], neg_random_point[0]])
+
+            neg_labels = np.zeros(len(neg_points), dtype=int)
+
+    return np.array(neg_points), np.array(neg_labels)
