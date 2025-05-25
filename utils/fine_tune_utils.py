@@ -165,6 +165,30 @@ def save_ckpts(epoch, itr, predictor, optimizer, scaler, mean_iou, loss, cpkt_pa
         "loss": loss.item()
     }, cpkt_path)
 
+def read_data_test(data):
+    img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
+    input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    if np.any(mask == 1):
+        indices = np.argwhere(mask==True)
+        random_point = indices[np.random.choice(list(range(len(indices))))]
+        random_point = [random_point[1], random_point[0]]
+
+        first_point = random_point
+        input_points.append(first_point)
+    
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
 def prep_point_image_test(data):
     img = cv2.cvtColor(cv2.imread(data["image"]), cv2.COLOR_BGR2RGB)
     gt_img = cv2.imread(data["annotation"], cv2.IMREAD_GRAYSCALE)
@@ -218,7 +242,7 @@ def prep_point_image(data, number_positive_points=1, number_negative_points=0):
     input_label_positive = np.ones(len(input_points)- len(neg_input_points), dtype=int)
     input_label_negative = np.zeros(len(neg_input_points), dtype=int)
     input_labels = np.concatenate([input_label_positive, input_label_negative], axis=0)
-
+   
     gt_img = torch.from_numpy(gt_img) 
     gt_img = (gt_img == 7).float()
     gt_img = gt_img.unsqueeze(0).cuda()
