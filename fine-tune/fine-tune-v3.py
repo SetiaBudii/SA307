@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import cv2
 import argparse
 import os
 import sys
@@ -17,8 +18,15 @@ from utils.visualize_plotting import *
 def main(args):
     config = load_config()
     sam2_model , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
-    optimizer, scaler = set_optimizer_and_scaler(predictor)
-    set_trainable_layers(False,True,True,predictor)
+    optimizer = torch.optim.AdamW(
+        params = predictor.model.parameters(),
+        lr = 5e-6,
+        weight_decay = 4e-5
+    )
+    scaler = torch.amp.GradScaler('cuda')
+    predictor.model.image_encoder.train(False)
+    predictor.model.sam_prompt_encoder.train(True)
+    predictor.model.sam_mask_decoder.train(True)
 
     #load dataset
     train_dir = config["fine_tune_path"]["train_dir"]
@@ -46,7 +54,7 @@ def main(args):
     loss_list = []
     best_miou = 0
 
-    for epoch in range(EPOCHS):
+    for epoch in range(10):
         pbar = tqdm(train_data, desc=f"Fine-tuning Epoch {epoch+1}")
         
         for i, data in enumerate(pbar):
@@ -124,8 +132,10 @@ def main(args):
 
 
         # Last iteration of one epoch
-        checkpoint_path = os.path.join(current_dir, checkpoint_dir, f"fine_tune_{epoch+1}epoch_{args.positive_point}_{args.negative_point}.pth")
-        save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
+        if epoch % 5 == 0 :
+            checkpoint_path = os.path.join(current_dir, checkpoint_dir, f"fine_tune_{epoch+1}epoch_{args.positive_point}_{args.negative_point}.pth")
+            save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
+            
         with open(log_file_path, "a") as log:
             log.write(f"Epoch {epoch+1}, mIoU: {mean_iou:.4f}, Loss: {avg_loss:.4f}\n")
             
@@ -138,10 +148,6 @@ def main(args):
     save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
 
     #Save visualization
-    epochs_val, miou_val, loss_val = read_log_file(log_file_val_path)
-    plot_miou(epochs_val, miou_val, save_path=os.path.join(metric_dir, f"miou_per_epoch_val_{args.positive_point}_{args.negative_point}.png"))
-    plot_loss(epochs_val, loss_val, save_path=os.path.join(metric_dir, f"loss_per_epoch_val_{args.positive_point}_{args.negative_point}.png"))
-
     epochs_train, miou_train, loss_train = read_log_file(log_file_path)
     plot_miou(epochs_train, miou_train, save_path=os.path.join(metric_dir, f"miou_per_epoch_train_{args.positive_point}_{args.negative_point}.png"))
     plot_loss(epochs_train, loss_train, save_path=os.path.join(metric_dir, f"loss_per_epoch_train_{args.positive_point}_{args.negative_point}.png"))
@@ -152,3 +158,4 @@ if __name__ == "__main__":
     parser.add_argument("--positive_point", type=int, required=True, help="jumlah titik positif")
     parser.add_argument("--negative_point", type=int, required=True, help="jumlah titik negatif")
     args = parser.parse_args()
+    main(args)
