@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import label
 from npc.hsv_negative_prompt_augmentation import get_mask
+import cv2
+from scipy.ndimage import center_of_mass, label
 
 def calculate_iou(mask1, mask2):
     intersection = torch.logical_and(mask1, mask2)
@@ -84,5 +86,76 @@ def neg_prompt_calibration(
             neg_random_point = neg_coords[np.random.randint(len(neg_coords))]
             neg_points.append([neg_random_point[1], neg_random_point[0]])
             neg_labels = np.zeros(len(neg_points), dtype=int)
+
+    return neg_points, neg_labels
+
+
+def npc(image_path, init_mask, class_value, num_points):
+    gt_img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    if class_value == 8:
+        class_masks = (8 * np.isin(gt_img, [1, 4, 5, 6])).astype(np.uint8)
+    else:
+        class_masks = gt_img * (gt_img == class_value)
+
+    labeled_array, num_instances = label(class_masks)
+    instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
+
+    neg_points = []
+    neg_labels = []
+
+    if (num_points > 0):
+        for i in range(1, num_instances + 1):
+            iou = calc_iou(init_mask, instances[i-1])
+            neg_coords = np.argwhere(instances[i-1] > 0)
+
+            gt = init_mask
+            pred = instances[i-1]
+
+            gt_bool = gt.astype(bool)
+            pred_bool = pred.astype(bool)
+
+            if iou > 0.005:
+                intersection_mask = gt_bool & pred_bool
+                neg_coords = np.argwhere(intersection_mask)
+
+                if len(neg_coords) > 0:
+                    neg_random_point = neg_coords[np.random.randint(len(neg_coords))]
+                    neg_points.append([neg_random_point[1], neg_random_point[0]])
+
+                neg_labels = np.zeros(len(neg_points), dtype=int)
+
+    return np.array(neg_points), np.array(neg_labels)
+
+def npc_hsv(masks, image, num_points):    
+    neg_points = np.array([])  # atau bentuk array kosong sesuai format yang diharapkan
+    neg_labels = np.array([])
+
+    if (num_points > 0):
+        masks_candidate = get_mask(image)
+
+        labeled_array, num_features = label(masks_candidate)
+        individual_features = [(labeled_array == i).astype(np.uint8) for i in range(1, num_features + 1)]
+        
+        neg_points = []
+        for i in range(1, num_features + 1):
+            iou = calc_iou(masks[0], individual_features[i-1])
+            neg_coords = np.argwhere(individual_features[i-1] > 0)
+
+            gt = masks[0]
+            pred = individual_features[i-1]
+            
+            gt_bool = gt.astype(bool)
+            pred_bool = pred.astype(bool)
+            
+            overlay = np.zeros((*gt.shape, 3), dtype=np.uint8)
+            overlay[gt_bool] = [255, 195, 128]
+            overlay[pred_bool] = [0, 0, 255]
+            overlay[gt_bool & pred_bool] = [255, 255, 0]
+            
+            if iou > 0.005:
+                neg_random_point = neg_coords[np.random.randint(len(neg_coords))]
+                neg_points.append([neg_random_point[1], neg_random_point[0]])
+                neg_labels = np.zeros(len(neg_points), dtype=int)
 
     return neg_points, neg_labels

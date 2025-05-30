@@ -4,12 +4,15 @@ from skimage import io
 import cv2
 import numpy as np
 from skimage.filters.rank import entropy
-from skimage.morphology import disk
+from skimage.morphology import disk, remove_small_objects
 from skimage.filters import threshold_otsu
 from skimage.morphology import label
 from skimage.measure import label
 from scipy.ndimage import binary_fill_holes
 from skimage.measure import regionprops
+from skimage.util import img_as_bool
+from skimage.measure import label
+from skimage.feature import local_binary_pattern
 
 def get_mask(image):
     img = image
@@ -120,3 +123,57 @@ def get_mask(image):
     # plt.show()
 
     return binary_img
+
+
+def get_mask_npc(image):
+    img = image
+    # Mengonversi citra RGB ke HSV menggunakan OpenCV
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    h, s, v = img_hsv[:, :, 0], img_hsv[:, :, 1], img_hsv[:, :, 2]
+    hue_mask = ((h >= 0) & (h <= 60)) | ((h >= 80) & (h <= 180))
+    saturation_mask = (s >= 70) & (s <= 255)
+    value_mask = (v >= 0) & (v <= 255)
+    hsv_mask = hue_mask & saturation_mask & value_mask
+
+    # LBP
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    lbp = local_binary_pattern(gray, P=8, R=1, method='uniform')
+    lbp_bin9_mask = (lbp == 8)
+
+    # Gabungan HSV dan LBP
+    result_mask = hsv_mask & lbp_bin9_mask
+    filtered_img = np.zeros_like(img)
+    filtered_img[result_mask] = img[result_mask]
+
+    # Entropy
+    entropy_img = entropy(filtered_img[:, :, 0], footprint=disk(2))
+    thresh = threshold_otsu(entropy_img)
+    binary_img = entropy_img <= thresh
+    binary_img = ~binary_img  # inversi
+    binary_img = binary_img.astype(np.uint8)
+    binary_img = cv2.erode(binary_img, np.ones((3, 3), np.uint8), iterations=2)
+    binary_img = cv2.dilate(binary_img, np.ones((3, 3), np.uint8), iterations=3)
+
+    # Fill holes & label
+    binary_img = binary_fill_holes(binary_img)
+    bool_mask = img_as_bool(binary_img)
+    cleaned_mask = remove_small_objects(bool_mask, min_size=2000)
+
+    # Terapkan cleaned mask ke gambar asli
+    result_image_cleaned = np.zeros_like(img)
+    result_image_cleaned[cleaned_mask] = img[cleaned_mask]
+
+    # Intensitas & filter
+    intensity = result_image_cleaned.mean(axis=2)
+    intensity_mask = (intensity >= 10) & (intensity < 80)
+
+    final_image = np.zeros_like(img)
+    final_image[intensity_mask] = result_image_cleaned[intensity_mask]
+
+    # Dilasi untuk hasil akhir
+    final_image = cv2.dilate(final_image, np.ones((3, 3), np.uint8), iterations=2)
+
+    #final image to binary
+    _, final_image_binary = cv2.threshold(final_image, 1, 255, cv2.THRESH_BINARY)
+
+    return final_image_binary
