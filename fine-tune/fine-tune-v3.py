@@ -54,7 +54,7 @@ def main(args):
     loss_list = []
     best_miou = 0
 
-    for epoch in range(10):
+    for epoch in range(EPOCHS):
         pbar = tqdm(train_data, desc=f"Fine-tuning Epoch {epoch+1}")
         
         for i, data in enumerate(pbar):
@@ -132,9 +132,9 @@ def main(args):
 
 
         # Last iteration of one epoch
-        if epoch % 5 == 0 :
-            checkpoint_path = os.path.join(current_dir, checkpoint_dir, f"fine_tune_{epoch+1}epoch_{args.positive_point}_{args.negative_point}.pth")
-            save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
+        # if epoch % 5 == 0 :
+        checkpoint_path = os.path.join(current_dir, checkpoint_dir, f"fine_tune_{epoch+1}epoch_{args.positive_point}_{args.negative_point}.pth")
+        save_ckpts(epoch, len(train_data), predictor, optimizer, scaler, mean_iou, loss,checkpoint_path)
             
         with open(log_file_path, "a") as log:
             log.write(f"Epoch {epoch+1}, mIoU: {mean_iou:.4f}, Loss: {avg_loss:.4f}\n")

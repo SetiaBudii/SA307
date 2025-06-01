@@ -65,7 +65,7 @@ def main(args):
     os.makedirs(output_folder_excel, exist_ok=True)
 
     #Define total run and miou scores
-    num_runs = 1
+    num_runs = 5
     miou_scores = []
 
     #Process Testing
@@ -117,8 +117,8 @@ def main(args):
                     new_prompt = np.concatenate([points, point_prompt_aug], axis=0)
                     input_label = np.ones(len(new_prompt), dtype=int)
 
-                print("new Prompt:", new_prompt)
-                print("Input Label:", input_label)
+                # print("new Prompt:", new_prompt)
+                # print("Input Label:", input_label)
 
                 neg_points, neg_labels = npc(data['annotation'], masks[0], 4, args.negative_point)
                 
@@ -150,13 +150,22 @@ def main(args):
             iou = calc_iou(masks[0], gt)
             ious.append(iou)
 
-            iou_results.append({
-                'image_file': data['image'],
-                'Titik':  new_prompt,
-                'label': input_label,
-                'iou_initial': initial_iou,
-                'iou_final': iou
-            })
+            if(args.positive_point > 0):
+                iou_results.append({
+                    'image_file': data['image'],
+                    'Titik':  new_prompt,
+                    'label': input_label,
+                    'iou_initial': initial_iou,
+                    'iou_final': iou
+                })
+            else:
+                iou_results.append({
+                    'image_file': data['image'],
+                    'Titik':  points,
+                    'label': labels,
+                    'iou_initial': initial_iou,
+                    'iou_final': iou
+                })
 
             #split image name
             image_name = os.path.basename(data['image'])
@@ -208,8 +217,19 @@ def main(args):
         
     mean_miou = np.mean(miou_scores)
     # std_miou = np.std(miou_scores)
+    
     print(f"\n📊 Final Results after {num_runs} runs:")
-    print(f"Mean of Mean IoUs: {mean_miou:.4f}")
+    if (args.typepositivepoint == 1 and args.typefirstpoint == 1 and args.positive_point > 0):
+        print(f"Mean IoU with Directional Points and Center First Point: {mean_miou:.4f}")
+    elif (args.typepositivepoint == 1 and args.typefirstpoint == 2 and args.positive_point > 0):
+        print(f"Mean IoU with Directional Points and Random First Point: {mean_miou:.4f}")
+    elif (args.typepositivepoint == 2 and args.typefirstpoint == 1 and args.positive_point > 0):
+        print(f"Mean IoU with Random Points and Center First Point: {mean_miou:.4f}")
+    elif (args.typepositivepoint == 2 and args.typefirstpoint == 2 and args.positive_point > 0):
+        print(f"Mean IoU with Random Points and Random First Point: {mean_miou:.4f}")
+    else:
+        print(f"Mean IoU: {mean_miou:.4f}") 
+
     iou_results.append({
         'mean_miou': mean_miou,
         # 'std_miou': std_miou
