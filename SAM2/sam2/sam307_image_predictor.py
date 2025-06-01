@@ -323,7 +323,7 @@ class SAM307ImagePredictor:
             if(strategy_ppa == 1):
                 point_prompt_aug = self._get_horizontal_point(point_coords[0], num_ppa, shift=5)
                 new_prompts = np.vstack((point_coords[0], point_prompt_aug))
-                new_labels = np.ones(len(point_coords[0]), dtype=int)
+                new_labels = np.ones(len(new_prompts), dtype=int)
             else:
                 point_prompt_aug = []
                 for i in range(num_ppa):
