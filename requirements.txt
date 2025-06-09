@@ -6,6 +6,8 @@ pycocotools==2.0.8
 scipy==1.15.2
 pyyaml==6.0.1
 tqdm
+streamlit_image_coordinates
+streamlit
 
 scikit-image
 python-box==7.0.1
