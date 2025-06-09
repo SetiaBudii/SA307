@@ -9,13 +9,14 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from sam2.build_sam import build_sam2
 from hydra import initialize_config_module
 from hydra.core.global_hydra import GlobalHydra
-from sam2.sam307_image_predictor import SAM307ImagePredictor
 import torch
 from menu_automatic import *
 import base64
 from io import BytesIO
 from utils.config import load_config
 from utils.fine_tune_utils import *
+from npc.npc_307 import npc_hsv
+from samaug.randomsampling import get_random_point
 
 def image_to_base64(image):
     # Convert the image to base64
@@ -152,30 +153,66 @@ def uploaded_image():
                     cp = f"c_{variant_sam}"
 
                     # load model and predictor
-
-                    model , predictor = prepare_model_predictor(config["variant_mapping"][cfg], config["variant_mapping"][cpkt], device="cuda")
-                    predictor_sam_307 = SAM307ImagePredictor(model)
+                    _ , predictor = prepare_model_predictor(config["variant_mapping"][cfg], config["variant_mapping"][cpkt], device="cuda")
+        
                     checkpoint = torch.load(config["checkpoint_path"][cp], weights_only=False)
                     model_state_dict = checkpoint['model_state']
-                    predictor_sam_307.model.load_state_dict(model_state_dict, strict=False)
+                    predictor.model.load_state_dict(model_state_dict, strict=False)
 
-                    predictor_sam_307.set_image(img)
+                    predictor.set_image(img)
                     st.session_state["run_inference"] = True
+
                     input_point = np.array([[chord_x*2, chord_y*2]])  # Example points, replace with actual coordinates
                     input_label = np.array([1])  # 1 for foreground, 0 for background
-                    masks, scores, logits = predictor_sam_307.predict(
+                    masks, scores, logits = predictor.predict(
                         point_coords=input_point,
                         point_labels=input_label,
-                        multimask_output=True,
-                        num_ppa=2,
-                        strategy_ppa=1,
-                        num_npc=3,
-                        gt_path='/kaggle/input/loveda-307/test_v5/masks_png/3299.png'
-            )
+                        multimask_output=False,
+                    )
                     sorted_ind = np.argsort(scores)[::-1]
                     masks = masks[sorted_ind]
                     scores = scores[sorted_ind]
                     logits = logits[sorted_ind]
+
+                    if Add_augmentation:
+                        if penambahan_titik_positif > 0 and penambahan_titik_negatif >= 0:
+                            point_prompt_aug = []
+                            for i in range(penambahan_titik_positif):
+                                point_prompt_aug.append(get_random_point(masks[0]))
+                                
+                            new_prompt = np.concatenate([input_point, point_prompt_aug], axis=0)
+                            input_label = np.ones(len(new_prompt), dtype=int)
+
+                            masks, scores, logits = predictor.predict(
+                                point_coords=new_prompt,
+                                point_labels=input_label,
+                                multimask_output=True,
+                            )
+                            sorted_ind = np.argsort(scores)[::-1]
+                            masks = masks[sorted_ind]
+                            scores = scores[sorted_ind]
+                            logits = logits[sorted_ind]
+                            # neg_points, neg_labels = npc_hsv( masks, img , args.negative_point)
+                            neg_points, neg_labels = npc_hsv( masks, img, penambahan_titik_negatif)
+                            
+                            # Penambahan titik negatif
+                            if len(neg_points) > 0:
+                                new_prompt = np.vstack((new_prompt, neg_points[:penambahan_titik_negatif]))
+                                input_label = np.concatenate((input_label, neg_labels[:penambahan_titik_negatif]), axis=0)
+                                # Result prediksi akhir
+                                masks, scores, logits = predictor.predict(
+                                    point_coords=new_prompt,
+                                    point_labels=input_label,
+                                    multimask_output=True,
+                                )
+                                sorted_ind = np.argsort(scores)[::-1]
+                                masks = masks[sorted_ind]
+                                scores = scores[sorted_ind]
+                                logits = logits[sorted_ind]
+
+                            input_point = new_prompt
+                            input_label = input_label
+                    
                     result_image = show_masks(img, masks, scores, point_coords=input_point, input_labels=input_label)
                     colomns = st.columns(3)
                     with colomns[0]:

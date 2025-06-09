@@ -11,6 +11,14 @@ from hydra import initialize_config_module
 from hydra.core.global_hydra import GlobalHydra
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 import torch
+from utils.config import load_config
+from utils.fine_tune_utils import *
+from npc.npc_307 import npc_hsv
+from samaug.randomsampling import get_random_point
+from scipy.spatial.distance import cdist
+from scipy.ndimage import center_of_mass, distance_transform_edt, label
+from samaug.directional import generate_directional_points
+from npc.npc_307 import npc_hsv
 
 
 def restart_streamlit():
@@ -31,7 +39,78 @@ def clear_hydra_once():
 # Call the clear_hydra_once function to clear Hydra
 clear_hydra_once()
 
+def prep_point_image_infer(name_file):
+    img_path = os.path.join(os.path.dirname(name_file), "images_png", os.path.basename(name_file))
+    gt_path = os.path.join(os.path.dirname(name_file), "masks_png", os.path.basename(name_file))
 
+    img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+
+    input_points = []
+    input_labels = []
+
+    mask = (gt_img == 7).astype(np.float32)
+    if np.any(mask == 1):
+        indices = np.argwhere(mask==True)
+        random_point = indices[np.random.choice(list(range(len(indices))))]
+        random_point = [random_point[1], random_point[0]]
+
+        first_point = random_point
+        input_points.append(first_point)
+    
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img) 
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
+
+def read_single_center_inference(name_file):
+    img_path = os.path.join(os.path.dirname(name_file), "images_png", os.path.basename(name_file))
+    gt_path = os.path.join(os.path.dirname(name_file), "masks_png", os.path.basename(name_file))
+
+    img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+
+    input_points = []
+    input_labels = []
+
+    agriculture = (gt_img == 7).astype(np.uint8)
+
+    labeled_array, num_instances = label(agriculture)
+    instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
+    pixel_counts = [np.sum(instance) for instance in instances]
+
+    max_index = int(np.argmax(pixel_counts))
+    largest_instance = instances[max_index]
+
+    centroid_y, centroid_x = center_of_mass(largest_instance)
+
+    dist_map = distance_transform_edt(largest_instance)
+    threshold = 20
+    candidate_coords = np.column_stack(np.where(dist_map >= threshold))
+    if len(candidate_coords) == 0:
+        foreground_coords = np.column_stack(np.where(largest_instance == 1))
+        distances = cdist([(centroid_y, centroid_x)], foreground_coords)
+        nearest_idx = np.argmin(distances)
+        centroid_y, centroid_x = foreground_coords[nearest_idx]
+    else:
+        distances = cdist([(centroid_y, centroid_x)], candidate_coords)
+        nearest_idx = np.argmin(distances)
+        centroid_y, centroid_x = candidate_coords[nearest_idx]
+
+    first_point = [centroid_x, centroid_y]
+    input_points.append(first_point)
+    input_points = np.array(input_points)
+    input_labels = np.ones(len(input_points), dtype=int)
+
+    gt_img = torch.from_numpy(gt_img)
+    gt_img = (gt_img == 7).float()
+    gt_img = gt_img.unsqueeze(0).cuda()
+
+    return img, gt_img, input_points, input_labels
 
 def show_mask(mask, ax, random_color=False, borders=True):
     if random_color:
@@ -104,15 +183,15 @@ def show_masks(image, masks, scores, point_coords=None, box_coords=None, input_l
 
 def automatic_with_gt():
     st.title("Automatic with GT")
-    
-    folder_path = "images/default"  # Ganti dengan folder gambar Anda
-    gt_path = "ground_truth/default"  # Ganti dengan folder ground truth Anda
+    config = load_config()
+    imagepath = config["testing"]["test_dir"]  # Ganti dengan folder gambar Anda
+    gt_path = config["testing"]["test_dir_mask"]  # Ganti dengan folder ground truth Anda
 
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-        st.sidebar.info(f"Folder '{folder_path}' dibuat. Silakan tambahkan gambar ke folder ini.")
-    files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    
+    if not os.path.exists(imagepath):
+        os.makedirs(imagepath)
+        st.sidebar.info(f"Folder '{imagepath}' dibuat. Silakan tambahkan gambar ke folder ini.")
+    files = [f for f in os.listdir(imagepath) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+
     #Select Type of Inference
     inference_type = st.sidebar.selectbox("Pilih tipe inferensi:", ("None Prompt", "M1", "M2", "M3", "M4"))
 
@@ -128,8 +207,8 @@ def automatic_with_gt():
         )
     if files:
         selected_file = st.sidebar.selectbox("Pilih gambar:", files)
-        image_path = os.path.join(folder_path, selected_file)
-        image = Image.open(image_path)
+        imagepath = os.path.join(imagepath, selected_file)
+        image = Image.open(imagepath)
 
         columns = st.columns(2)
         with columns[0]:
@@ -145,14 +224,20 @@ def automatic_with_gt():
                 match inference_type:
                     case "M1":
                         st.write("Inferensi M1: Titik awal random dan tipe penambahan titik positif bersifat random")
+                        img, gt, points, labels = prep_point_image_infer(selected_file)
                     case "M2":
                         st.write("Inferensi M2: Titik awal random dan tipe penambahan titik positif bersifat directional")
+                        img, gt, points, labels = prep_point_image_infer(selected_file)
                     case "M3":
                         st.write("Inferensi M3: Titik awal ditengah area pertanian terluas dan tipe penambahan titik positif bersifat random")
+                        img, gt, points, labels = read_single_center_inference(selected_file)
                     case "M4":
                         st.write("Inferensi M4: Titik awal ditengah area pertanian terluas dan tipe penambahan titik positif bersifat directional")
+                        img, gt, points, labels = read_single_center_inference(selected_file)
             else:
                 st.write("Tidak ada koordinat yang dipilih (None Prompt).")
+                points = "None"
+                labels = "None"
     else:
         st.sidebar.warning("Tidak ada gambar di folder.")
     
@@ -164,31 +249,67 @@ def automatic_with_gt():
 
     #button in sidebar
     if st.sidebar.button("Jalankan Inferensi") and selected_file:
-        model = load_model(
-            variant="large",
-            ckpt_path="sam2_hiera_large.pt",
-            device="cpu"
-        )
+        cpkt = f"checkpoint_{variant_sam}"
+        cfg = f"config_{variant_sam}"
 
-        predictor = SAM2ImagePredictor(model)
-        checkpoint = torch.load("fine_tune_10epoch_2_2.pth", weights_only=False, map_location="cpu")
+        cp = f"c_{variant_sam}"
+
+        # load model and predictor
+        _ , predictor = prepare_model_predictor(config["variant_mapping"][cfg], config["variant_mapping"][cpkt], device="cuda")
+
+        checkpoint = torch.load(config["checkpoint_path"][cp], weights_only=False)
         model_state_dict = checkpoint['model_state']
         predictor.model.load_state_dict(model_state_dict, strict=False)
 
         predictor.set_image(image)
         st.session_state["run_inference"] = True
-        input_point = np.array([[100, 100],[200, 200]])  # Example points, replace with actual coordinates
-        input_label = np.array([1, 0])  # 1 for foreground, 0 for background    
+        
         masks, scores, logits = predictor.predict(
-            point_coords=input_point,
-            point_labels=input_label,
+            point_coords=points,
+            point_labels=labels,
             multimask_output=False,
         )
         sorted_ind = np.argsort(scores)[::-1]
         masks = masks[sorted_ind]
         scores = scores[sorted_ind]
         logits = logits[sorted_ind]
-        result_image = show_masks(image, masks, scores, point_coords=input_point, input_labels=input_label)
+
+        if jumlah_penambahan_titik[0] > 0 and jumlah_penambahan_titik[1] >= 0:
+            if(inference_type == "M2" or inference_type == "M4"):
+                new_prompt, input_label = generate_directional_points(points, jumlah_penambahan_titik[0])
+            else:
+                point_prompt_aug = []
+                for i in range(jumlah_penambahan_titik[0]):
+                    point_prompt_aug.append(get_random_point(masks[0]))
+                    
+                new_prompt = np.concatenate([points, point_prompt_aug], axis=0)
+                input_label = np.ones(len(new_prompt), dtype=int)
+
+            neg_points, neg_labels =  npc_hsv( masks, img, jumlah_penambahan_titik[1])
+            
+            # Penambahan titik negatif
+            if len(neg_points) > 0 and jumlah_penambahan_titik[1] > 0:
+                neg_points = np.array(neg_points)
+                num_neg = min(jumlah_penambahan_titik[1], len(neg_points))
+                indices = np.random.choice(len(neg_points), size=num_neg, replace=False)
+                sampled_neg_points = neg_points[indices]
+                neg_points_formatted = np.array([[pt[1], pt[0]] for pt in sampled_neg_points])
+                neg_labels = np.zeros(len(neg_points_formatted), dtype=int)
+                new_prompt = np.concatenate([new_prompt, neg_points_formatted], axis=0)
+                input_label = np.concatenate([input_label, neg_labels], axis=0)
+                
+            # Result prediksi akhir
+            masks, scores, logits = predictor.predict(
+                point_coords=new_prompt,
+                point_labels=input_label,
+                multimask_output=True,
+            )
+            sorted_ind = np.argsort(scores)[::-1]
+            masks = masks[sorted_ind]
+            scores = scores[sorted_ind]
+            logits = logits[sorted_ind]
+            
+        result_image = show_masks(image, masks, scores, point_coords=points, input_labels=labels)
         st.write(f"Hasil Inferensi --> Akurasi {scores[0]:.3f}")
         colomns = st.columns(3)
         with colomns[0]:
