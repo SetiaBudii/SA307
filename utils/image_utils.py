@@ -7,6 +7,8 @@ from tqdm import tqdm
 import cv2
 import os
 import torch
+from scipy.spatial.distance import cdist
+from scipy.ndimage import center_of_mass, distance_transform_edt, label
 
 def ground_truth_to_json(image_path, image_id, file_name):
     img = Image.open(image_path).convert("L")
@@ -162,33 +164,32 @@ def read_single_center(data):
     input_points = []
     input_labels = []
 
-    agriculture = (gt_img == 7).astype(np.int8)
+    agriculture = (gt_img == 7).astype(np.uint8)
 
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(agriculture, connectivity=8)
+    labeled_array, num_instances = label(agriculture)
+    instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
+    pixel_counts = [np.sum(instance) for instance in instances]
 
-    if num_labels > 1:
-        largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
-        largest_component = (labels == largest_label).astype(np.uint8)
+    max_index = int(np.argmax(pixel_counts))
+    largest_instance = instances[max_index]
 
-        kernel = np.ones((7, 7), np.uint8)
-        eroded = cv2.erode(largest_component, kernel, iterations=5)
+    centroid_y, centroid_x = center_of_mass(largest_instance)
 
-        if np.count_nonzero(eroded) == 0:
-            eroded = largest_component
+    dist_map = distance_transform_edt(largest_instance)
+    threshold = 20
+    candidate_coords = np.column_stack(np.where(dist_map >= threshold))
+    if len(candidate_coords) == 0:
+        foreground_coords = np.column_stack(np.where(largest_instance == 1))
+        distances = cdist([(centroid_y, centroid_x)], foreground_coords)
+        nearest_idx = np.argmin(distances)
+        centroid_y, centroid_x = foreground_coords[nearest_idx]
+    else:
+        distances = cdist([(centroid_y, centroid_x)], candidate_coords)
+        nearest_idx = np.argmin(distances)
+        centroid_y, centroid_x = candidate_coords[nearest_idx]
 
-        ys, xs = np.where(eroded)
-
-        M = cv2.moments(largest_component)
-        cx_float = M["m10"] / M["m00"]
-        cy_float = M["m01"] / M["m00"]
-
-        distances = (xs - cx_float)**2 + (ys - cy_float)**2
-        idx = np.argmin(distances)
-
-        cx, cy = xs[idx], ys[idx]
-        first_point = (int(cx), int(cy))
-        input_points.append(first_point)
-
+    first_point = [centroid_x, centroid_y]
+    input_points.append(first_point)
     input_points = np.array(input_points)
     input_labels = np.ones(len(input_points), dtype=int)
 
