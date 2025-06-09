@@ -176,7 +176,7 @@ def read_single_center(data):
     centroid_y, centroid_x = center_of_mass(largest_instance)
 
     dist_map = distance_transform_edt(largest_instance)
-    threshold = 25
+    threshold = 20
     candidate_coords = np.column_stack(np.where(dist_map >= threshold))
     if len(candidate_coords) == 0:
         foreground_coords = np.column_stack(np.where(largest_instance == 1))
