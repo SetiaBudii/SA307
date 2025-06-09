@@ -29,8 +29,9 @@ argparse arguments:
 - positive_point: jumlah titik positif yang akan ditambahkan
 - negative_point: jumlah titik negatif yang akan ditambahkan
 - checkpoint_path: path ke file checkpoint model
-- typepositivepoint: tipe penambahan titik positif, 1 untuk directional, 2 untuk random
 - typefirstpoint: tipe titik pertama, 1 untuk center, 2 untuk random
+- typepositivepoint: tipe penambahan titik positif, 1 untuk directional, 2 untuk random
+- typenegativepoint: tipe penambahan titik negatif, 1 untuk random, 2 untuk center
 
 output:
 - Folder predict_out: berisi mask yang diprediksi
@@ -120,7 +121,7 @@ def main(args):
                 # print("new Prompt:", new_prompt)
                 # print("Input Label:", input_label)
 
-                neg_points, neg_labels = npc(data['annotation'], masks[0], 4, args.negative_point)
+                neg_points, neg_labels = npc(data['annotation'], masks[0], 4, args.typenegativepoint)
                 
                 # Penambahan titik negatif
                 if len(neg_points) > 0 and args.negative_point > 0:
@@ -211,7 +212,7 @@ def main(args):
             })
     
         miou = sum(ious) / len(ious) if ious else 0
-        save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"iou_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
+        save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"iou_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.typenegativepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
         print(f"\n✅ Mean IoU on test set: {miou:.4f}")
         miou_scores.append(miou)
         
@@ -242,8 +243,9 @@ if __name__ == "__main__":
     parser.add_argument("--positive_point", type=int, required=True, help="jumlah penambahan titik positif")
     parser.add_argument("--negative_point", type=int, required=True, help="jumlah penambahan titik negatif")
     parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to the checkpoint file")
-    parser.add_argument("--typepositivepoint", type=int, help="Type penambahan positif point, 1 untuk directional, 2 untuk random", default=1)
     parser.add_argument("--typefirstpoint", type=int, default=1, help="Type penambahan titik pertama, 1 untuk center, 2 untuk random")
+    parser.add_argument("--typepositivepoint", type=int, help="Type penambahan positif point, 1 untuk directional, 2 untuk random", default=1)
+    parser.add_argument("--typenegativepoint", type=int, help="Type penambahan negative point, 1 untuk random, 2 untuk directional/center", default=1)
     args = parser.parse_args()
 
     main(args)
