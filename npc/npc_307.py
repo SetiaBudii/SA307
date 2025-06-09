@@ -5,7 +5,6 @@ sys.path.insert(0, '..')
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.ndimage import label
 from npc.hsv_negative_prompt_augmentation import get_mask
 import cv2
 from scipy.ndimage import center_of_mass, label
@@ -90,42 +89,39 @@ def neg_prompt_calibration(
     return neg_points, neg_labels
 
 
-def npc(image_path, init_mask, class_value, num_points):
-    gt_img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+def npc(gt_path, init_mask, class_value, type):
+        gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
 
-    if class_value == 8:
-        class_masks = (8 * np.isin(gt_img, [1, 4, 5, 6])).astype(np.uint8)
-    else:
         class_masks = gt_img * (gt_img == class_value)
+        labeled_array, num_instances = label(class_masks)
+        instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
 
-    labeled_array, num_instances = label(class_masks)
-    instances = [(labeled_array == i).astype(np.uint8) for i in range(1, num_instances + 1)]
-
-    neg_points = []
-    neg_labels = []
-
-    if (num_points > 0):
+        neg_points = []
+        neg_labels = []
         for i in range(1, num_instances + 1):
             iou = calc_iou(init_mask, instances[i-1])
             neg_coords = np.argwhere(instances[i-1] > 0)
 
-            gt = init_mask
-            pred = instances[i-1]
+            instance = instances[i-1]
 
-            gt_bool = gt.astype(bool)
-            pred_bool = pred.astype(bool)
+            init_mask_bool = init_mask.astype(bool)
+            instance_bool = instance.astype(bool)
 
             if iou > 0.005:
-                intersection_mask = gt_bool & pred_bool
-                neg_coords = np.argwhere(intersection_mask)
+                intersection_mask = init_mask_bool & instance_bool
 
-                if len(neg_coords) > 0:
+                if type == 1: # random
+                    neg_coords = np.argwhere(intersection_mask)
                     neg_random_point = neg_coords[np.random.randint(len(neg_coords))]
                     neg_points.append([neg_random_point[1], neg_random_point[0]])
+                elif type == 2: # center
+                    centroid_y, centroid_x = center_of_mass(intersection_mask)
+                    neg_points.append([centroid_x, centroid_y])
 
                 neg_labels = np.zeros(len(neg_points), dtype=int)
 
-    return np.array(neg_points), np.array(neg_labels)
+        return np.array(neg_points), np.array(neg_labels)
+        
 
 def npc_hsv(masks, image, num_points):    
     neg_points = np.array([])  # atau bentuk array kosong sesuai format yang diharapkan
