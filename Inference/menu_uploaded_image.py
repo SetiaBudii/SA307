@@ -17,6 +17,7 @@ from utils.config import load_config
 from utils.fine_tune_utils import *
 from npc.npc_307 import npc_hsv
 from samaug.randomsampling import get_random_point
+import cv2
 
 def image_to_base64(image):
     # Convert the image to base64
@@ -82,20 +83,27 @@ def uploaded_image():
     </div><br><br>
     """, unsafe_allow_html=True)
     
-    uploaded_file = st.sidebar.file_uploader("Upload gambar", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.sidebar.file_uploader("Upload gambar", type=["png"])
     name_uploaded_file = uploaded_file.name if uploaded_file else None
     variant_sam = st.sidebar.selectbox("Pilih varian SAM:",
         ("tiny", "small", "base", "large")
     )
     Add_augmentation = st.sidebar.checkbox("Tambahkan Augmentasi Titik", value=True)
     if Add_augmentation:
-        penambahan_titik_positif = st.sidebar.number_input("Jumlah titik positif yang ingin ditambahkan:", min_value=1, max_value=10, value=1)
-        penambahan_titik_negatif = st.sidebar.number_input("Jumlah titik negatif yang ingin ditambahkan:", min_value=1, max_value=10, value=1)
+        penambahan_titik_positif = st.sidebar.number_input("Jumlah titik positif yang ingin ditambahkan:", min_value=0, max_value=10, value=1)
+        penambahan_titik_negatif = st.sidebar.number_input("Jumlah titik negatif yang ingin ditambahkan:", min_value=0, max_value=10, value=1)
 
     if "points" not in st.session_state:
         st.session_state["points"] = []
+    st.write(uploaded_file)
     if uploaded_file is not None:
+        image_upld = Image.open(uploaded_file)
+        save_path = os.path.join("/content/SA307/datasets", uploaded_file.name)
+        image_upld.save(save_path)
+        st.sidebar.success("Gambar berhasil di-upload!")
+
         with Image.open(uploaded_file) as img:
+            gambarnya = cv2.imread(os.path.join("/content/SA307/datasets", uploaded_file.name))
         # Store original dimensions
             original_width, original_height = img.size
             width_downscaled = original_width // 2
@@ -131,11 +139,9 @@ def uploaded_image():
                     <p>Koordinat yang dipilih: x = {}, y = {}</p>
                     <p>Nama Gambar: {}</p>
                     <p>Varian Model SAM 2: {}</p>
-                    <p>Jumlah titik positif tambahan: {}</p>
-                    <p>Max Jumlah titik negatif: {}</p>
                 </div>
             </div>
-            """.format(image_to_base64(img_with_points), chord_x*2, chord_y*2, name_uploaded_file, variant_sam, penambahan_titik_positif, penambahan_titik_negatif), unsafe_allow_html=True)
+            """.format(image_to_base64(img_with_points), chord_x*2, chord_y*2, name_uploaded_file, variant_sam), unsafe_allow_html=True)
             st.markdown("---")
             st.markdown("""
             <div style="border: 1px solid #ccc; padding: 10px; text-align: center; border-radius: 10px; background-color: #f9f9f9;">
@@ -186,14 +192,14 @@ def uploaded_image():
                             masks, scores, logits = predictor.predict(
                                 point_coords=new_prompt,
                                 point_labels=input_label,
-                                multimask_output=True,
+                                multimask_output=False,
                             )
                             sorted_ind = np.argsort(scores)[::-1]
                             masks = masks[sorted_ind]
                             scores = scores[sorted_ind]
                             logits = logits[sorted_ind]
                             # neg_points, neg_labels = npc_hsv( masks, img , args.negative_point)
-                            neg_points, neg_labels = npc_hsv( masks, img, penambahan_titik_negatif)
+                            neg_points, neg_labels = npc_hsv( masks, gambarnya, penambahan_titik_negatif)
                             
                             # Penambahan titik negatif
                             if len(neg_points) > 0:
@@ -203,7 +209,7 @@ def uploaded_image():
                                 masks, scores, logits = predictor.predict(
                                     point_coords=new_prompt,
                                     point_labels=input_label,
-                                    multimask_output=True,
+                                    multimask_output=False,
                                 )
                                 sorted_ind = np.argsort(scores)[::-1]
                                 masks = masks[sorted_ind]
@@ -216,28 +222,28 @@ def uploaded_image():
                     result_image = show_masks(img, masks, scores, point_coords=input_point, input_labels=input_label)
                     colomns = st.columns(3)
                     with colomns[0]:
-                        st.image(img, caption="Gambar asli", use_column_width=True)
+                        st.image(img, caption="Gambar asli", use_container_width=True)
                     with colomns[1]:
-                        st.image(img, caption="Ground Truth", use_column_width=True)
+                        st.image(img, caption="Ground Truth", use_container_width=True)
                     with colomns[2]:
-                        st.image(masks[0], caption="Hasil Prediksi", use_column_width=True)
+                        st.image(masks[0], caption="Hasil Prediksi", use_container_width=True)
 
                     #divider
                     st.markdown("---")
-                    st.image(result_image, caption="Hasil Akhir", use_column_width=True)
+                    st.image(result_image, caption="Hasil Akhir", use_container_width=True)
             
             # st.write("Captured Coordinates:", value)
             # st.session_state["points"].append((value["x"], value["y"]))
 
 
-        if uploaded_file is not None:
+        # if uploaded_file is not None:
 
-            image = Image.open(uploaded_file)
-            save_path = os.path.join("images", uploaded_file.name)
-            if not os.path.exists("images"):
-                os.makedirs("images")
-            image.save(save_path)
-            st.sidebar.success("Gambar berhasil di-upload!")
+        #     image = Image.open(uploaded_file)
+        #     save_path = os.path.join("images", uploaded_file.name)
+        #     if not os.path.exists("images"):
+        #         os.makedirs("images")
+        #     image.save(save_path)
+        #     st.sidebar.success("Gambar berhasil di-upload!")
 
             #using Columns to display the image and coordinates
             # with st.echo("below"):
@@ -248,7 +254,7 @@ def uploaded_image():
 
             # st.write(value)
 
-        else:
-            st.sidebar.write("Belum ada gambar yang di-upload.")
+        # else:
+        #     st.sidebar.write("Belum ada gambar yang di-upload.")
     else:
         st.sidebar.write("Silakan upload gambar untuk memulai.")

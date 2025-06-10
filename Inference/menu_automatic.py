@@ -6,7 +6,6 @@ import sys
 sys.path.insert(0, '..')
 import matplotlib.pyplot as plt
 from streamlit_image_coordinates import streamlit_image_coordinates
-from sam2 import load_model
 from hydra import initialize_config_module
 from hydra.core.global_hydra import GlobalHydra
 from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -19,6 +18,7 @@ from scipy.spatial.distance import cdist
 from scipy.ndimage import center_of_mass, distance_transform_edt, label
 from samaug.directional import generate_directional_points
 from npc.npc_307 import npc_hsv
+from utils.metric import calc_iou
 
 
 def restart_streamlit():
@@ -40,11 +40,15 @@ def clear_hydra_once():
 clear_hydra_once()
 
 def prep_point_image_infer(name_file):
-    img_path = os.path.join(os.path.dirname(name_file), "images_png", os.path.basename(name_file))
-    gt_path = os.path.join(os.path.dirname(name_file), "masks_png", os.path.basename(name_file))
+    img_path = os.path.join("/content/drive/Shareddrives/TA/Bimbingan/test_v5/images_png", os.path.basename(name_file))
+    gt_path = os.path.join("/content/drive/Shareddrives/TA/Bimbingan/test_v5/masks_png", os.path.basename(name_file))
 
-    img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    #img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    img = cv2.imread(img_path, cv2.COLOR_BGR2RGB)
     gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+    if gt_img is None:
+        raise ValueError(f"Failed to load the ground truth image: {gt_path}")
+    
 
     input_points = []
     input_labels = []
@@ -68,10 +72,11 @@ def prep_point_image_infer(name_file):
     return img, gt_img, input_points, input_labels
 
 def read_single_center_inference(name_file):
-    img_path = os.path.join(os.path.dirname(name_file), "images_png", os.path.basename(name_file))
-    gt_path = os.path.join(os.path.dirname(name_file), "masks_png", os.path.basename(name_file))
+    img_path = os.path.join("/content/drive/Shareddrives/TA/Bimbingan/test_v5/images_png", os.path.basename(name_file))
+    gt_path = os.path.join("/content/drive/Shareddrives/TA/Bimbingan/test_v5/masks_png", os.path.basename(name_file))
 
-    img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    #img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+    img = cv2.imread(img_path, cv2.COLOR_BGR2RGB)
     gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
 
     input_points = []
@@ -196,7 +201,7 @@ def automatic_with_gt():
     inference_type = st.sidebar.selectbox("Pilih tipe inferensi:", ("None Prompt", "M1", "M2", "M3", "M4"))
 
     variant_sam = st.sidebar.selectbox("Pilih varian SAM:",
-        ("tiny", "small", "base_plus", "large")
+        ("tiny", "small", "base", "large")
     )
     if inference_type != "None Prompt":
         jumlah_penambahan_titik = st.sidebar.selectbox(
@@ -208,7 +213,20 @@ def automatic_with_gt():
     if files:
         selected_file = st.sidebar.selectbox("Pilih gambar:", files)
         imagepath = os.path.join(imagepath, selected_file)
+        gt_pathnya = os.path.join(gt_path, selected_file)
         image = Image.open(imagepath)
+        gete = Image.open(gt_pathnya)
+        gte = gete.convert("L")  # Convert the image to grayscale ('L' mode)
+
+        # Convert image to numpy array
+        gte_array = np.array(gte)
+
+        # Apply threshold to create a binary mask
+        gte_binary_mask = (gte_array > 0).astype(np.uint8) * 255  # Apply threshold (127) for binarization
+
+        # Convert the binary mask back to a PIL image
+        gte_binary_image = Image.fromarray(gte_binary_mask)
+
 
         columns = st.columns(2)
         with columns[0]:
@@ -219,7 +237,6 @@ def automatic_with_gt():
                 jumlah_penambahan_titik = [int(x.split()[1]) for x in jumlah_penambahan_titik]
                 st.write(f"Tipe Inferensi: {inference_type}")
                 st.write(f"Jumlah Penambahan Titik: Positif {jumlah_penambahan_titik[0]}, Negatif {jumlah_penambahan_titik[1]}")
-                st.write("Koordinat yang dipilih: (Y,Y)")
                 st.write("Varian SAM: ", variant_sam)
                 match inference_type:
                     case "M1":
@@ -236,8 +253,8 @@ def automatic_with_gt():
                         img, gt, points, labels = read_single_center_inference(selected_file)
             else:
                 st.write("Tidak ada koordinat yang dipilih (None Prompt).")
-                points = "None"
-                labels = "None"
+                points =  None
+                labels = None
     else:
         st.sidebar.warning("Tidak ada gambar di folder.")
     
@@ -274,51 +291,82 @@ def automatic_with_gt():
         scores = scores[sorted_ind]
         logits = logits[sorted_ind]
 
-        if jumlah_penambahan_titik[0] > 0 and jumlah_penambahan_titik[1] >= 0:
-            if(inference_type == "M2" or inference_type == "M4"):
-                new_prompt, input_label = generate_directional_points(points, jumlah_penambahan_titik[0])
-            else:
-                point_prompt_aug = []
-                for i in range(jumlah_penambahan_titik[0]):
-                    point_prompt_aug.append(get_random_point(masks[0]))
-                    
-                new_prompt = np.concatenate([points, point_prompt_aug], axis=0)
-                input_label = np.ones(len(new_prompt), dtype=int)
+        if points is not None and points.size > 0:
+          if jumlah_penambahan_titik[0] > 0 and jumlah_penambahan_titik[1] >= 0:
+              if(inference_type == "M2" or inference_type == "M4"):
+                  new_prompt, input_label = generate_directional_points(points, jumlah_penambahan_titik[0])
+              else:
+                  point_prompt_aug = []
+                  for i in range(jumlah_penambahan_titik[0]):
+                      point_prompt_aug.append(get_random_point(masks[0]))
+                      
+                  new_prompt = np.concatenate([points, point_prompt_aug], axis=0)
+                  input_label = np.ones(len(new_prompt), dtype=int)
 
-            neg_points, neg_labels =  npc_hsv( masks, img, jumlah_penambahan_titik[1])
-            
-            # Penambahan titik negatif
-            if len(neg_points) > 0 and jumlah_penambahan_titik[1] > 0:
-                neg_points = np.array(neg_points)
-                num_neg = min(jumlah_penambahan_titik[1], len(neg_points))
-                indices = np.random.choice(len(neg_points), size=num_neg, replace=False)
-                sampled_neg_points = neg_points[indices]
-                neg_points_formatted = np.array([[pt[1], pt[0]] for pt in sampled_neg_points])
-                neg_labels = np.zeros(len(neg_points_formatted), dtype=int)
-                new_prompt = np.concatenate([new_prompt, neg_points_formatted], axis=0)
-                input_label = np.concatenate([input_label, neg_labels], axis=0)
-                
-            # Result prediksi akhir
-            masks, scores, logits = predictor.predict(
-                point_coords=new_prompt,
-                point_labels=input_label,
-                multimask_output=True,
-            )
-            sorted_ind = np.argsort(scores)[::-1]
-            masks = masks[sorted_ind]
-            scores = scores[sorted_ind]
-            logits = logits[sorted_ind]
-            
-        result_image = show_masks(image, masks, scores, point_coords=points, input_labels=labels)
-        st.write(f"Hasil Inferensi --> Akurasi {scores[0]:.3f}")
+              masks, scores, logits = predictor.predict(
+                  point_coords=new_prompt,
+                  point_labels=input_label,
+                  multimask_output=False,
+              )
+              sorted_ind = np.argsort(scores)[::-1]
+              masks = masks[sorted_ind]
+              scores = scores[sorted_ind]
+              logits = logits[sorted_ind]
+
+              neg_points, neg_labels =  npc_hsv( masks, img, jumlah_penambahan_titik[1])
+              
+              if len(neg_points) > 0:
+                  print(jumlah_penambahan_titik[1])
+                  new_prompt = np.vstack((new_prompt, neg_points[:jumlah_penambahan_titik[1]]))
+                  input_label = np.concatenate((input_label, neg_labels[:jumlah_penambahan_titik[1]]))
+                  # Result prediksi akhir
+                  masks, scores, logits = predictor.predict(
+                      point_coords=new_prompt,
+                      point_labels=input_label,
+                      multimask_output=False,
+                  )
+                  sorted_ind = np.argsort(scores)[::-1]
+                  masks = masks[sorted_ind]
+                  scores = scores[sorted_ind]
+                  logits = logits[sorted_ind]
+              # # Penambahan titik negatif
+              # if len(neg_points) > 0 and jumlah_penambahan_titik[1] > 0:
+              #     neg_points = np.array(neg_points)
+              #     num_neg = min(jumlah_penambahan_titik[1], len(neg_points))
+              #     indices = np.random.choice(len(neg_points), size=num_neg, replace=False)
+              #     sampled_neg_points = neg_points[indices]
+              #     neg_points_formatted = np.array([[pt[1], pt[0]] for pt in sampled_neg_points])
+              #     neg_labels = np.zeros(len(neg_points_formatted), dtype=int)
+              #     new_prompt = np.concatenate([new_prompt, neg_points_formatted], axis=0)
+              #     input_label = np.concatenate([input_label, neg_labels], axis=0)
+                  
+              # # Result prediksi akhir
+              # masks, scores, logits = predictor.predict(
+              #     point_coords=new_prompt,
+              #     point_labels=input_label,
+              #     multimask_output=False,
+              # )
+              # sorted_ind = np.argsort(scores)[::-1]
+              # masks = masks[sorted_ind]
+              # scores = scores[sorted_ind]
+              # logits = logits[sorted_ind]
+
+              points = new_prompt
+              labels = input_label
+        
+        iou  = calc_iou(masks[0], gte_binary_mask)
+
+        st.write(f"Hasil Inferensi --> Akurasi {iou:.3f}")
         colomns = st.columns(3)
         with colomns[0]:
-            st.image(image, caption="Gambar asli", use_column_width=True)
+            st.image(image, caption="Gambar asli", use_container_width=True)
         with colomns[1]:
-            st.image(image, caption="Ground Truth", use_column_width=True)
+            st.image(gte_binary_mask, caption="Ground Truth", use_container_width=True)
         with colomns[2]:
-            st.image(masks[0], caption="Hasil Prediksi", use_column_width=True)
+            st.image(masks[0], caption="Hasil Prediksi", use_container_width=True)
 
         #divider
+        result_image = show_masks(image, masks, scores, point_coords=points, input_labels=labels)
         st.markdown("---")
-        st.image(result_image, caption="Hasil Akhir", use_column_width=True)
+        colomns = st.columns(2)
+        st.image(result_image, caption="Hasil Akhir", use_container_width=True)

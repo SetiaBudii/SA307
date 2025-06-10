@@ -9,7 +9,7 @@ fine_tune_params:
   trainable_prompt_encoder: true
 
 model:
-  checkpoint: "/kaggle/working/SA307/SAM2/sam2_hiera_large.pt" 
+  checkpoint: "/content/SA307/SAM2/sam2_hiera_large.pt" 
   config : "configs/sam2/sam2_hiera_l.yaml" 
   device: cuda
 
@@ -18,35 +18,35 @@ fine_tune_path:
   train_dir_mask: "/kaggle/input/loveda-307/train_v5/masks_png"
   val_dir: "/kaggle/input/loveda-307/val_v5/images_png"
   val_dir_mask: "/kaggle/input/loveda-307/val_v5/masks_png"
-  logs: "/kaggle/working/SA307/fine-tune/logs"
-  metric: "/kaggle/working/SA307/fine-tune/metric"
+  logs: "/content/SA307/fine-tune/logs"
+  metric: "/content/SA307/fine-tune/metric"
 
 testing:
-  test_dir: "/kaggle/input/loveda-307/test_v5/images_png"
-  test_dir_mask: "/kaggle/input/loveda-307/test_v5/masks_png"
+  test_dir: "/content/drive/Shareddrives/TA/Bimbingan/test_v5/images_png"
+  test_dir_mask: "/content/drive/Shareddrives/TA/Bimbingan/test_v5/masks_png"
   test_dir_output: "/path/to/output"
   test_dir_all_mask: "/kaggle/input/loveda-307/test_v5/all_masks_png"
-  predict_out : "/kaggle/working/predict_out"
-  visual_out : "/kaggle/working/visual_out"
-  excel_out : "/kaggle/working/test_excel"
+  predict_out : "/content/predict_out"
+  visual_out : "/content/visual_out"
+  excel_out : "/content/test_excel"
   number_runs : 5
 
 datasets:
   annotatation_coco: "/path/to/annotations"
 
 variant_mapping:
-  checkpoint_tiny: "/kaggle/working/SA307/SAM2/sam2_hiera_tiny.pt" 
-  config_tiny: "configs/sam2/sam2_hiera_t.yaml" 
-  checkpoint_small: "/kaggle/working/SA307/SAM2/sam2_hiera_small.pt" 
-  config_small: "configs/sam2/sam2_hiera_s.yaml" 
-  checkpoint_base: "/kaggle/working/SA307/SAM2/sam2_hiera_base_plus.pt" 
-  config_base: "configs/sam2/sam2_hiera_b+.yaml" 
-  checkpoint_large: "/kaggle/working/SA307/SAM2/sam2_hiera_base_plus.pt" 
-  config_large: "configs/sam2/sam2_hiera_b+.yaml" 
+  checkpoint_tiny: "/content/SA307/SAM2/sam2_hiera_tiny.pt" 
+  config_tiny: "sam2_hiera_t.yaml" 
+  checkpoint_small: "/content/SA307/SAM2/sam2_hiera_small.pt" 
+  config_small: "sam2_hiera_s.yaml" 
+  checkpoint_base: "/content/SA307/SAM2/sam2_hiera_base_plus.pt" 
+  config_base: "sam2_hiera_b+.yaml" 
+  checkpoint_large: "/content/SA307/SAM2/sam2_hiera_large.pt" 
+  config_large: "sam2_hiera_l.yaml" 
   device: cuda
 
-  checkpoint_path:
-    c_tiny: "/conten/abv.pth"
-    c_small: "/conten/abv.pth"
-    c_base: "/conten/abv.pth"
-    c_large: "/conten/abv.pth"
+checkpoint_path:
+    c_tiny: "/content/model/fine_tune_tiny_10epoch.pth"
+    c_small: "/content/model/fine_tune_small_10epoch.pth"
+    c_base: "/content/model/fine_tune_baseplus_10epoch.pth"
+    c_large: "/content/model/fine_tune_10epoch_2_2.pth"
