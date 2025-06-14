@@ -30,8 +30,9 @@ argparse arguments:
 - positive_point: jumlah titik positif yang akan ditambahkan
 - negative_point: jumlah titik negatif yang akan ditambahkan
 - checkpoint_path: path ke file checkpoint model
-- typepositivepoint: tipe penambahan titik positif, 1 untuk directional, 2 untuk random
 - typefirstpoint: tipe titik pertama, 1 untuk center, 2 untuk random
+- typepositivepoint: tipe penambahan titik positif, 1 untuk directional, 2 untuk random
+- typenegativepoint: tipe penambahan titik negatif, 1 untuk random, 2 untuk center
 
 output:
 - Folder predict_out: berisi mask yang diprediksi
@@ -39,7 +40,7 @@ output:
 - Folder test_excel: berisi file excel dengan hasil IoU
 
 example usage:
-python test_batch_final.py --positive_point 3 --negative_point 2 --checkpoint_path "path/to/checkpoint.pth" --typepositivepoint 1 --typefirstpoint 1
+python test_batch_final.py --positive_point 3 --negative_point 2 --checkpoint_path "path/to/checkpoint.pth" --typefirstpoint 1 --typepositivepoint 1 --typenegativepoint 1
 """
 
 def calc_metrics(prd, gt):
@@ -156,8 +157,6 @@ def main(args):
                     new_prompt = np.concatenate([points, point_prompt_aug], axis=0)
                     input_label = np.ones(len(new_prompt), dtype=int)
 
-                # print("new Prompt:", new_prompt)
-                # print("Input Label:", input_label)
                 masks, scores, logits = predictor.predict(
                     point_coords=new_prompt,
                     point_labels=input_label,
@@ -167,13 +166,15 @@ def main(args):
                 masks = masks[sorted_ind]
                 scores = scores[sorted_ind]
                 logits = logits[sorted_ind]
+
                 # neg_points, neg_labels = npc_hsv( masks, img , args.negative_point)
-                neg_points, neg_labels = npc( data['annotation'], masks[0], 4, args.negative_point)
+                neg_points, neg_labels = npc( data['annotation'], masks[0], 4, args.typenegativepoint)
                 
                 # Penambahan titik negatif
                 if len(neg_points) > 0:
                     new_prompt = np.vstack((new_prompt, neg_points[:args.negative_point]))
                     input_label = np.concatenate((input_label, neg_labels[:args.negative_point]))
+                    
                     # Result prediksi akhir
                     masks, scores, logits = predictor.predict(
                         point_coords=new_prompt,
@@ -184,16 +185,6 @@ def main(args):
                     masks = masks[sorted_ind]
                     scores = scores[sorted_ind]
                     logits = logits[sorted_ind]
-                    
-                # if len(neg_points) > 0 and args.negative_point > 0:
-                #     neg_points = np.array(neg_points)
-                #     num_neg = min(args.negative_point, len(neg_points))
-                #     indices = np.random.choice(len(neg_points), size=num_neg, replace=False)
-                #     sampled_neg_points = neg_points[indices]
-                #     neg_points_formatted = np.array([[pt[0], pt[1]] for pt in sampled_neg_points])
-                #     neg_labels = np.zeros(len(neg_points_formatted), dtype=int)
-                #     new_prompt = np.concatenate([new_prompt, neg_points_formatted], axis=0)
-                #     input_label = np.concatenate([input_label, neg_labels], axis=0)
                     
 
             elif args.positive_point < 0 and args.negative_point < 0:
@@ -276,14 +267,13 @@ def main(args):
     
         miou = sum(ious) / len(ious) if ious else 0
         mean_j_and_f = np.mean(j_and_f_scores)
-        save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"iou_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
+        save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"iou_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.typenegativepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
         print(f"\n✅ Mean IoU on test set: {miou:.4f}")
         miou_scores.append(miou)
         jandf.append(mean_j_and_f)
         
     mean_miou = np.mean(miou_scores)
     metric_jandf = np.mean(jandf)
-    # std_miou = np.std(miou_scores)
     
     print(f"\n📊 Final Results after {num_runs} runs:")
     if (args.typepositivepoint == 1 and args.typefirstpoint == 1 and args.positive_point > 0):
@@ -302,18 +292,17 @@ def main(args):
     iou_results.append({
         'mean_miou': mean_miou,
         'J&F':metric_jandf,
-        # 'std_miou': std_miou
     })
-    save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"final_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
-    # print(f"Standard Deviation: {std_miou:.4f}")
+    save_iou_to_excel(iou_results, os.path.join(output_folder_excel, f"final_results_{args.typefirstpoint}_{args.typepositivepoint}_{args.typenegativepoint}_{args.positive_point}_{args.negative_point}.xlsx"))
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Testing script for SAM2 model")
     parser.add_argument("--positive_point", type=int, required=True, help="jumlah penambahan titik positif")
     parser.add_argument("--negative_point", type=int, required=True, help="jumlah penambahan titik negatif")
     parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to the checkpoint file")
-    parser.add_argument("--typepositivepoint", type=int, help="Type penambahan positif point, 1 untuk directional, 2 untuk random", default=1)
     parser.add_argument("--typefirstpoint", type=int, default=1, help="Type penambahan titik pertama, 1 untuk center, 2 untuk random")
+    parser.add_argument("--typepositivepoint", type=int, help="Type penambahan positif point, 1 untuk directional, 2 untuk random", default=1)
+    parser.add_argument("--typenegativepoint", type=int, help="Type penambahan negative point, 1 untuk random, 2 untuk directional/center", default=1)
     args = parser.parse_args()
 
     main(args)
