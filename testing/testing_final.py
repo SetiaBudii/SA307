@@ -145,8 +145,8 @@ def main(args):
             initial_mask = masks[0]
             initial_iou = calc_iou(masks[0], gt)
     
-            #Jika terdapat penambahan titik positif atau negatif
-            if args.positive_point > 0 and args.negative_point >= 0:
+            # Jika terdapat penambahan titik positif
+            if args.positive_point > 0:
                 if(args.typepositivepoint == 1):
                     new_prompt, input_label = generate_directional_points(points, args.positive_point)
                 else:
@@ -167,6 +167,8 @@ def main(args):
                 scores = scores[sorted_ind]
                 logits = logits[sorted_ind]
 
+            # Jika terdapat penambahan titik negatif
+            if args.negative_point > 0:
                 # neg_points, neg_labels = npc_hsv( masks, img , args.negative_point)
                 neg_points, neg_labels = npc( data['annotation'], masks[0], 4, args.typenegativepoint)
                 
