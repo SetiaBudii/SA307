@@ -29,6 +29,7 @@ testing:
   predict_out : "/kaggle/working/predict_out"
   visual_out : "/kaggle/working/visual_out"
   excel_out : "/kaggle/working/test_excel"
+  result: "/kaggle/working/result"
   number_runs : 5
 
 datasets:

@@ -31,3 +31,20 @@ def generate_directional_points(points, positive_point_count):
 
     input_label = np.ones(len(new_prompt), dtype=int)
     return new_prompt, input_label
+
+def get_left_point(point, shift):
+  return [point[0] - shift, point[1]]
+
+def get_right_point(point, shift):
+  return [point[0] + shift, point[1]]
+
+def get_horizontal_point(point, num, shift=5):
+  new_points = []
+  for i in range(1, num + 1):
+      if len(new_points) >= num:
+          break
+      new_points.append(get_left_point(point, shift * i))
+      if len(new_points) >= num:
+          break
+      new_points.append(get_right_point(point, shift * i))
+  return new_points

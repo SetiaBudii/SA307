@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import json
 
 def calc_iou(prd, gt):
     if isinstance(gt, torch.Tensor):
@@ -49,3 +50,51 @@ def calc_metrics(prd, gt):
     j_and_f = (iou + f1_score) / 2
     
     return iou, precision, recall, f1_score, j_and_f
+
+def compute_auc(ious_subset):
+    clicks = np.arange(1, len(ious_subset) + 1)
+    auc = np.trapezoid(ious_subset, clicks)
+    normalized_auc = auc / (clicks[-1] - clicks[0]) if len(clicks) > 1 else auc
+    return auc, normalized_auc
+
+def calc_auc_all_scenario(results):
+    # Skenario klik
+    scenario_indices = [
+        [0, 1],
+        [0, 1, 2],
+        [0, 1, 3],
+        [0, 1, 3, 4],
+        [0, 1, 3, 4, 5],
+        [0, 1, 3, 6],
+        [0, 1, 3, 6, 7],
+        [0, 1, 3, 6, 7, 8],
+        [0, 1, 3, 6, 7, 8, 9]
+    ]
+
+    # Proses semua hasil
+    for result in results:
+        ious = result.get('iou', [])
+        auc_list = []
+
+        for indices in scenario_indices:
+            try:
+                ious_subset = [ious[i] for i in indices]
+                auc, normalized_auc = compute_auc(ious_subset)
+                auc_list.append(normalized_auc)
+            except IndexError:
+                auc_list.append(None)
+
+        result['auc'] = auc_list
+
+    auc_matrix = []
+
+    for result in results:
+        auc_values = result.get('auc', [])
+        if len(auc_values) == 9:
+            auc_matrix.append(auc_values)
+
+    auc_matrix = np.array(auc_matrix)
+
+    average_aucs = np.nanmean(auc_matrix, axis=0)
+
+    return average_aucs
