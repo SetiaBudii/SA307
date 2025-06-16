@@ -46,7 +46,7 @@ variant_mapping:
   device: cuda
 
 checkpoint_path:
-    c_tiny: "/content/model/fine_tune_tiny_10epoch.pth"
-    c_small: "/content/model/fine_tune_small_10epoch.pth"
-    c_base: "/content/model/fine_tune_baseplus_10epoch.pth"
-    c_large: "/content/model/fine_tune_10epoch_2_2.pth"
+    c_tiny: "/content/drive/Shareddrives/TA/Collab/cpkt/checkpoints/VariantSAM2/fine_tune_tiny_10epoch.pth"
+    c_small: "/content/drive/Shareddrives/TA/Collab/cpkt/checkpoints/VariantSAM2/fine_tune_small_10epoch.pth"
+    c_base: "/content/drive/Shareddrives/TA/Collab/cpkt/checkpoints/VariantSAM2/fine_tune_baseplus_10epoch.pth"
+    c_large: "/content/drive/Shareddrives/TA/Collab/cpkt/checkpoints/VariantSAM2/fine_tune_10epoch_2_2.pth"

@@ -18,6 +18,7 @@ from scipy.spatial.distance import cdist
 from scipy.ndimage import center_of_mass, distance_transform_edt, label
 from samaug.directional import generate_directional_points
 from npc.npc_307 import npc_hsv
+from npc.npc_307 import npc
 from utils.metric import calc_iou
 
 
@@ -38,6 +39,7 @@ def clear_hydra_once():
 
 # Call the clear_hydra_once function to clear Hydra
 clear_hydra_once()
+
 
 def prep_point_image_infer(name_file):
     img_path = os.path.join("/content/drive/Shareddrives/TA/Bimbingan/test_v5/images_png", os.path.basename(name_file))
@@ -190,7 +192,9 @@ def automatic_with_gt():
     st.title("Automatic with GT")
     config = load_config()
     imagepath = config["testing"]["test_dir"]  # Ganti dengan folder gambar Anda
-    gt_path = config["testing"]["test_dir_mask"]  # Ganti dengan folder ground truth Anda
+    # gt_path = config["testing"]["test_dir_mask"]  # Ganti dengan folder ground truth Anda
+    gt_path = "/content/drive/Shareddrives/TA/Bimbingan/test_v5/output_folder"
+    gt_path_binary = config["testing"]["test_dir_mask"]  # Ganti dengan folder ground truth Anda
 
     if not os.path.exists(imagepath):
         os.makedirs(imagepath)
@@ -214,15 +218,18 @@ def automatic_with_gt():
         selected_file = st.sidebar.selectbox("Pilih gambar:", files)
         imagepath = os.path.join(imagepath, selected_file)
         gt_pathnya = os.path.join(gt_path, selected_file)
+        gt_pathnya_binary = os.path.join(gt_path_binary, selected_file)
         image = Image.open(imagepath)
         gete = Image.open(gt_pathnya)
+        gete_binary = Image.open(gt_pathnya_binary)
         gte = gete.convert("L")  # Convert the image to grayscale ('L' mode)
+        gete_b = gete_binary.convert("L")
 
         # Convert image to numpy array
-        gte_array = np.array(gte)
+        gte_array = np.array(gete_b)
 
         # Apply threshold to create a binary mask
-        gte_binary_mask = (gte_array > 0).astype(np.uint8) * 255  # Apply threshold (127) for binarization
+        gte_binary_mask = (gte_array == 7).astype(np.uint8) * 255  # Apply threshold (127) for binarization
 
         # Convert the binary mask back to a PIL image
         gte_binary_image = Image.fromarray(gte_binary_mask)
@@ -313,7 +320,8 @@ def automatic_with_gt():
               scores = scores[sorted_ind]
               logits = logits[sorted_ind]
 
-              neg_points, neg_labels =  npc_hsv( masks, img, jumlah_penambahan_titik[1])
+              # neg_points, neg_labels =  npc_hsv( masks, img, jumlah_penambahan_titik[1])
+              neg_points, neg_labels = npc( gt_pathnya, masks[0], 4, 1)
               
               if len(neg_points) > 0:
                   print(jumlah_penambahan_titik[1])
