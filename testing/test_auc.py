@@ -1,6 +1,8 @@
+import os
+import sys
+sys.path.insert(0, '..')
 import argparse
 import json
-import os
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -113,12 +115,12 @@ def main(args):
         iou, precision, recall, f1_score, j_and_f = calc_metrics(masks[0], gt)
 
         # Save IoU skenario 1
-        log["ious"].append(iou)
-        log["jnfs"].append(j_and_f)
+        log["iou"].append(iou)
+        log["jnf"].append(j_and_f)
 
         # PPA
         if(args.typepositivepoint == 1):
-            new_point = get_horizontal_point(input_point, args.positive_point)
+            new_point = get_horizontal_point(input_point[0], 3)
             log["ppa"] = new_point
         else:
             for i in range(3):
@@ -142,8 +144,8 @@ def main(args):
         iou, precision, recall, f1_score, j_and_f = calc_metrics(masks[0], gt)
 
         # Save IoU skenario 2
-        log["ious"].append(iou)
-        log["jnfs"].append(j_and_f)
+        log["iou"].append(iou)
+        log["jnf"].append(j_and_f)
 
         # NPC
         neg_points, neg_labels = npc( data['annotation'], masks[0], 4, args.typenegativepoint)
@@ -181,8 +183,8 @@ def main(args):
             logits = logits[sorted_ind]
 
             iou, precision, recall, f1_score, j_and_f = calc_metrics(masks[0], gt)
-            log["ious"].append(iou)
-            log["jnfs"].append(j_and_f)
+            log["iou"].append(iou)
+            log["jnf"].append(j_and_f)
 
         results.append(log)
 
