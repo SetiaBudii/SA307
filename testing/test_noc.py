@@ -124,17 +124,17 @@ def main(args):
 
     # type model
     model_name = "404"
-    if args.checkpoint_path == "/kaggle/input/testtt/pytorch/tiny/1/fine_tune_tiny_10epoch.pth":
+    if args.checkpoint_path == "/kaggle/input/testtt/pytorch/tiny/1/fine_tune_tiny_10epoch.pth" or args.checkpoint_path == "tiny":
         model_name = "tiny"
         config["model"]["config"] = config["variant_mapping"]["config_tiny"]
         config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_tiny"]
 
-    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/small/1/fine_tune_small_10epoch.pth":
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/small/1/fine_tune_small_10epoch.pth" or args.checkpoint_path == "small":
         model_name = "small"
         config["model"]["config"] = config["variant_mapping"]["config_small"]
         config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_small"]
 
-    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/baseplus/1/fine_tune_baseplus_10epoch.pth":
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/baseplus/1/fine_tune_baseplus_10epoch.pth" or args.checkpoint_path == "baseplus":
         model_name = "baseplus"
         config["model"]["config"] = config["variant_mapping"]["config_base"]
         config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_base"]
@@ -144,9 +144,11 @@ def main(args):
 
     # load model and predictor
     _ , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
-    checkpoint = torch.load(args.checkpoint_path,weights_only=False)
-    model_state_dict = checkpoint['model_state']
-    predictor.model.load_state_dict(model_state_dict, strict=False)
+
+    if args.checkpoint_path not in ["tiny", "small", "baseplus", "large"]:
+        checkpoint = torch.load(args.checkpoint_path,weights_only=False)
+        model_state_dict = checkpoint['model_state']
+        predictor.model.load_state_dict(model_state_dict, strict=False)
 
     # load data test
     test_data = load_dataset(config["testing"]["test_dir"], config["testing"]["test_dir_all_mask"])
@@ -211,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_path",
         type=str,
-        required=True,
+        required=False,
         help="Path to the model checkpoint file."
     )
 
