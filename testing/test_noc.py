@@ -76,9 +76,12 @@ def simulate_interactive_segmentation(data, predictor, max_clicks=20, iou_thresh
     for click_num in range(1, max_clicks + 1):
         input_point = pos_clicks + neg_clicks
         input_label = [1] * len(pos_clicks) + [0] * len(neg_clicks)
+
+        input_point_np = np.array(input_point, dtype=np.float32)
+        input_label_np = np.array(input_label, dtype=np.float32)
         masks, scores, logits = predictor.predict(
-            point_coords=input_point,
-            point_labels=input_label,
+            point_coords=input_point_np,
+            point_labels=input_label_np,
             multimask_output=True,
         )
         sorted_ind = np.argsort(scores)[::-1]
@@ -119,6 +122,26 @@ def main(args):
     # load configuration and model
     config = load_config()
 
+    # type model
+    model_name = "404"
+    if args.checkpoint_path == "/kaggle/input/testtt/pytorch/tiny/1/fine_tune_tiny_10epoch.pth":
+        model_name = "tiny"
+        config["model"]["config"] = config["variant_mapping"]["config_tiny"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_tiny"]
+
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/small/1/fine_tune_small_10epoch.pth":
+        model_name = "small"
+        config["model"]["config"] = config["variant_mapping"]["config_small"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_small"]
+
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/baseplus/1/fine_tune_baseplus_10epoch.pth":
+        model_name = "baseplus"
+        config["model"]["config"] = config["variant_mapping"]["config_base"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_base"]
+
+    elif args.checkpoint_path == "/kaggle/input/cpkt_5/pytorch/2p2n/1/fine_tune_10epoch_2_2.pth":
+        model_name = "large"
+
     # load model and predictor
     _ , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
     checkpoint = torch.load(args.checkpoint_path,weights_only=False)
@@ -132,18 +155,7 @@ def main(args):
     output_folder = config["testing"]["result"]
     os.makedirs(output_folder, exist_ok=True)
 
-    # type model
-    model_name = "404"
-    if args.checkpoint_path == "/kaggle/input/testtt/pytorch/tiny/1/fine_tune_tiny_10epoch.pth":
-        model_name = "tiny"
-    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/small/1/fine_tune_small_10epoch.pth":
-        model_name = "small"
-    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/baseplus/1/fine_tune_baseplus_10epoch.pth":
-        model_name = "baseplus"
-    elif args.checkpoint_path == "/kaggle/input/cpkt_5/pytorch/2p2n/1/fine_tune_10epoch_2_2.pth":
-        model_name = "large"
-
-    pbar = tqdm(test_data, desc=f"Testing NoC@{args.target}")
+    pbar = tqdm(test_data, desc=f"Testing NoC@{int(args.target * 100)}")
 
     click_num_per_image = []
     logs = []
@@ -169,7 +181,6 @@ def main(args):
         logs.append(log)
 
         pbar.set_postfix({
-            "Data ke-": i + 1,
             "Max Clicks": max_clicks
         })
 
@@ -186,7 +197,8 @@ def main(args):
     logs.append(summary)
 
     # Simpan ke file JSON
-    with open(f"{model_name}_logs.json", "w") as f:
+    output_path = os.path.join(output_folder)
+    with open(f"{output_path}/{model_name}_logs.json", "w") as f:
         json.dump(logs, f, indent=2, default=convert)
 
     print(f"\n✅ NoC on test set: {noc_90:.4f}")
