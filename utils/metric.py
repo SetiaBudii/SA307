@@ -57,6 +57,11 @@ def compute_auc(ious_subset):
     normalized_auc = auc / (clicks[-1] - clicks[0]) if len(clicks) > 1 else auc
     return auc, normalized_auc
 
+def calc_auc(clicks, ious):
+    auc = np.trapezoid(ious, clicks)
+    normalized_auc = auc / (clicks[-1] - clicks[0]) if len(clicks) > 1 else auc
+    return auc, normalized_auc
+
 def calc_auc_all_scenario(results):
     # Skenario klik
     scenario_indices = [
