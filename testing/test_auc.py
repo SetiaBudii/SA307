@@ -45,6 +45,26 @@ def main(args):
     # load configuration and model
     config = load_config()
 
+    # type model
+    model_name = "404"
+    if args.checkpoint_path == "/kaggle/input/testtt/pytorch/tiny/1/fine_tune_tiny_10epoch.pth" or args.checkpoint_path == "tiny":
+        model_name = "tiny"
+        config["model"]["config"] = config["variant_mapping"]["config_tiny"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_tiny"]
+
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/small/1/fine_tune_small_10epoch.pth" or args.checkpoint_path == "small":
+        model_name = "small"
+        config["model"]["config"] = config["variant_mapping"]["config_small"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_small"]
+
+    elif args.checkpoint_path == "/kaggle/input/testtt/pytorch/baseplus/1/fine_tune_baseplus_10epoch.pth" or args.checkpoint_path == "baseplus":
+        model_name = "baseplus"
+        config["model"]["config"] = config["variant_mapping"]["config_base"]
+        config["model"]["checkpoint"] = config["variant_mapping"]["checkpoint_base"]
+
+    elif args.checkpoint_path == "/kaggle/input/cpkt_5/pytorch/2p2n/1/fine_tune_10epoch_2_2.pth":
+        model_name = "large"
+
     # load model and predictor
     _ , predictor = prepare_model_predictor(config["model"]["config"], config["model"]["checkpoint"], device="cuda")
     checkpoint = torch.load(args.checkpoint_path,weights_only=False)
@@ -194,7 +214,7 @@ def main(args):
 
     # Simpan ke file JSON
     output_path = os.path.join(output_folder)
-    with open(f"{output_path}/results.json", "w") as f:
+    with open(f"{output_path}/{model_name}_result_auc.json", "w") as f:
         json.dump(results, f, indent=2, default=convert)
 
 if __name__ == "__main__":
