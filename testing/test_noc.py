@@ -97,12 +97,12 @@ def simulate_interactive_segmentation(data, predictor, max_clicks=20, iou_thresh
         iou, precision, recall, f1_score, j_and_f = calc_metrics(pred_mask, gt)
         iou_log.append(iou)
         if iou >= iou_threshold:
-            return click_num, input_point, input_label, iou_log
+            return click_num, input_point, input_label, iou_log, img, gt, pred_mask
 
         # Add next click
         result = generate_next_click(gt_mask, pred_mask, pos_clicks, neg_clicks)
         if result is None:
-            return click_num, input_point, input_label, iou_log
+            return click_num, input_point, input_label, iou_log, img, gt, pred_mask
         click_type, coord = result
         if click_type == 'positive':
             pos_clicks.append(coord)
@@ -210,7 +210,7 @@ def main(args):
         axes[1].axis("off")
 
         axes[2].imshow(pred_mask)
-        axes[2].set_title(f"Result\nIoU: {iou:.4f}")
+        axes[2].set_title(f"Result\nIoU: {iou[-1]:.4f}")
         axes[2].axis("off")
         
         # Simpan ke folder
