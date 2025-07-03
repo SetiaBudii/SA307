@@ -13,6 +13,8 @@ from utils.data_loader import load_dataset
 from utils.fine_tune_utils import prepare_model_predictor, prep_point_image_test
 from utils.image_utils import read_single_center
 from utils.metric import calc_metrics
+from PIL import Image
+import matplotlib.pyplot as plt
 
 """
 Testing script SAM 2
@@ -107,7 +109,7 @@ def simulate_interactive_segmentation(data, predictor, max_clicks=20, iou_thresh
         else:
             neg_clicks.append(coord)
 
-    return max_clicks, input_point, input_label, iou_log
+    return max_clicks, input_point, input_label, iou_log, img, gt, pred_mask
 
 def convert(obj):
     if isinstance(obj, (np.integer,)):
@@ -172,7 +174,7 @@ def main(args):
             "iou": None
         }
         
-        max_clicks, input_point, input_label, iou = simulate_interactive_segmentation(data, predictor, args.threshold, args.target, args.typefirstpoint)
+        max_clicks, input_point, input_label, iou, img, gt, pred_mask = simulate_interactive_segmentation(data, predictor, args.threshold, args.target, args.typefirstpoint)
         click_num_per_image.append(max_clicks)
 
         log["max_clicks"] = max_clicks
@@ -185,6 +187,38 @@ def main(args):
         pbar.set_postfix({
             "Max Clicks": max_clicks
         })
+
+        #split image name
+        image_name = os.path.basename(data['image'])
+        image_name = os.path.splitext(image_name)[0]
+        image_id = image_name.split('.')[0]
+
+        #save predicted mask menjadi image
+        predicted_mask = pred_mask
+        predicted_mask = (predicted_mask > 0).astype(np.uint8) * 255
+        predicted_mask = Image.fromarray(predicted_mask)
+        predicted_mask.save(os.path.join(output_folder, f"predicted_mask_{image_id}.png"))
+
+        #plotting image, ground truth, first mask dan last mask
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        axes[0].imshow(img)
+        axes[0].set_title("Image")
+        axes[0].axis("off")
+        
+        axes[1].imshow(gt.squeeze(0).cpu().numpy())
+        axes[1].set_title("Ground Truth")
+        axes[1].axis("off")
+
+        axes[2].imshow(pred_mask)
+        axes[2].set_title(f"Result\nIoU: {iou:.4f}")
+        axes[2].axis("off")
+        
+        # Simpan ke folder
+        filename = f"plot_{image_id}.png"
+        save_path = os.path.join(output_folder, f"result_{filename}")
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()
 
     
     num_twenty = click_num_per_image.count(20)
