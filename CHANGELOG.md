@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - 2025-05-30
+## [Unreleased] - 2025-07-08
 
 ### Added
 - 04-05 - feat: add COCO annotation creation script and update config for dataset paths
@@ -19,11 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 03-19 - feat: add git ignore
 
 ### Fixed
+- 07-03 - fix: minor bug
+- 06-16 - fix: minor bug
+- 06-15 - fix: kondisi penambahan titik
+- 06-08 - fix: init point center
 - 05-01 - fix: correct epochs value in fine-tuning configuration
 - 04-03 - fix: update setuptools version range in pyproject.toml
 - 03-14 - fix: agriculture counter and add split data program
 
 ### Changed
+- 07-08 - refactor: modification fine-tune.py and test_prompt_none.py
+- 07-08 - refactor: delete unused file
+- 07-08 - refactor: delete unused file
+- 07-08 - refactor: delete unused file
+- 07-08 - refactor: remove commented-out code and clean up imports in hsv_negative_prompt_augmentation.py and npc_hsv.py
+- 07-08 - refactor: remove unused parameters from config
+- 06-01 - refactor: replace hardcoded epoch count with EPOCHS constant and adjust checkpoint saving logic; increase number of test runs from 1 to 5
 - 05-12 - Refactor: Remove unused file
 - 05-01 - refactor: use utility function for saving model checkpoints
 - 04-30 - refactor: change testing flow
@@ -36,6 +47,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 03-18 - chore: rename folder SAM 2 to SAM2
 
 ### Misc
+- 07-08 - add: implement patch extraction from TIFF images
+- 07-03 - add: save result image
+- 06-23 - add: handle for sam2 variant
+- 06-19 - add: feature calc auc by scenario
+- 06-17 - add: handle for base model variant input
+- 06-17 - add: handle for various model size
+- 06-17 - add: script for evaluate using metric noc
+- 06-16 - add: test auc
+- 06-14 - add: argument typenegativepoint
+- 06-09 - adjust for npc center
+- 06-09 - add: npc center
+- 06-09 - best threshold by experiment
+- 06-09 - add: enhance configuration and metrics calculation; implement testing script for SAM2 model with detailed output and metrics saving
+- 06-08 - Merge branch 'main' of https://github.com/SetiaBudii/SA307
+- 06-08 - add: implement comprehensive testing script for SAM 2 model with IoU metrics, visualization, and configurable parameters
+- 05-30 - update changelog for unreleased changes and recent additions
 - 05-30 - add: update configuration for fine-tuning parameters, create final testing setup, and implement directional point generation
 - 05-25 - delete unused file
 - 05-25 - add: implement inference scripts for image comparison and batch testing, update fine-tuning utilities
