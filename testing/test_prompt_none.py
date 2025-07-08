@@ -12,6 +12,21 @@ from utils.metric import calc_iou, calc_metrics
 from PIL import Image
 from utils.excel import save_iou_to_excel
 
+"""
+Testing script (Tanpa menggunakan point) SAM 2
+
+argparse arguments:
+--checkpoint_path: Path to the model checkpoint
+--variant: Model variant to use
+
+output:
+- iou_results: List of IoU results for each image
+- predicted_mask: Predicted mask saved as an image
+
+example usage:
+python test_prompt_none.py --checkpoint_path "path/to/checkpoint.pth" --variant "base"
+"""
+
 def main(args):
     iou_results = [] # List to store IoU results for each image
     status = args.checkpoint_path
