@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import label
 from npc.hsv_negative_prompt_augmentation import get_mask
 
+# Experimental code to get mask from image using HSV and LBP (Belum 100% selesai)
 def calculate_iou(mask1, mask2):
     intersection = torch.logical_and(mask1, mask2)
     union = torch.logical_or(mask1, mask2)

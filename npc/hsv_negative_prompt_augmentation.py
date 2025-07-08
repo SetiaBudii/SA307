@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from skimage import io
 import cv2
 import numpy as np
 from skimage.filters.rank import entropy
@@ -14,6 +12,7 @@ from skimage.util import img_as_bool
 from skimage.measure import label
 from skimage.feature import local_binary_pattern
 
+# Experimental code to get mask from image using HSV and LBP (Belum 100% selesai)
 def get_mask(image):
     img = image
     # Mengonversi citra RGB ke HSV menggunakan OpenCV
@@ -65,62 +64,9 @@ def get_mask(image):
     binary_img = binary_fill_holes(binary_img)  # Mengisi lubang dalam citra biner
     labeled_img = label(binary_img)  # Memberikan label pada objek dalam citra biner
 
-    # # Cek jumlah objek yang terdeteksi
-    # num_objects = np.max(labeled_img)
-    # print(f"Jumlah objek terdeteksi: {num_objects}")
-
-    # # Menampilkan hasil
-    # fig, axes = plt.subplots(1, 5, figsize=(20, 5))
-
-    # # Citra asli
-    # axes[0].imshow(img)
-    # axes[0].set_title("Original RGB Image")
-    # axes[0].axis('off')
-
-    # # Kanal Hue
-    # axes[1].imshow(hue_channel, cmap='hsv')
-    # axes[1].set_title("Hue Channel")
-    # axes[1].axis('off')
-
-    # # Kanal Saturation
-    # axes[2].imshow(saturation_channel, cmap='gray')
-    # axes[2].set_title("Saturation Channel")
-    # axes[2].axis('off')
-
-    # # Kanal Value
-    # axes[3].imshow(value_channel, cmap='gray')
-    # axes[3].set_title("Value Channel")
-    # axes[3].axis('off')
-
-    # # Citra yang telah difilter berdasarkan Hue, Saturation, dan Value
-    # axes[4].imshow(filtered_img)
-    # axes[4].set_title("Filtered Image (Based on H, S, V Ranges)")
-    # axes[4].axis('off')
-
-    # # Menampilkan citra entropy dan binary image
-    # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    # axes[0].imshow(img,)
-    # axes[0].set_title("Entropy Image")
-    # axes[0].axis('off')
-    # axes[1].imshow(binary_img, cmap='gray')
-    # axes[1].set_title("Binary Image (Otsu's thresholded)")  
-    # axes[1].axis('off')
-
     #cari 3 label terbesar
     props = regionprops(labeled_img)
     largest_regions = sorted(props, key=lambda x: x.area, reverse=True)[:3]
-
-    # # Plot hasil deteksi objek terbesar
-    # fig, ax = plt.subplots(figsize=(10, 10))
-    # ax.imshow(img)
-    # for region in largest_regions:
-    #     minr, minc, maxr, maxc = region.bbox
-    #     rect = plt.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False, edgecolor='red', linewidth=2)
-    #     ax.add_patch(rect)
-    #     ax.text(minc, minr - 10, f'Area: {region.area}', color='red', fontsize=12)
-
-    # plt.tight_layout()
-    # plt.show()
 
     return binary_img
 
